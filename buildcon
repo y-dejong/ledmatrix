@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Create and run a Podman container from the 'picodev' image, 
+# mounting the current directory to /root/workspace inside the container
+# -Dpicotool_DIR=/usr/local/lib64/cmake/picotool
+podman run --rm -it \
+    -v $(pwd):/root/workspace:z \
+    picodev /bin/bash -c "\
+    mkdir -p /root/workspace/build && \
+    cd /root/workspace/build && \
+    cmake -Dpicotool_DIR=/usr/local/lib64/cmake/picotool -DPICO_BOARD=pico_w .. && \
+    make"
+

@@ -1,0 +1,7 @@
+/root/workspace/build/pioasm/CMakeFiles/pioasm.dir
+/root/workspace/build/pioasm/CMakeFiles/edit_cache.dir
+/root/workspace/build/pioasm/CMakeFiles/rebuild_cache.dir
+/root/workspace/build/pioasm/CMakeFiles/list_install_components.dir
+/root/workspace/build/pioasm/CMakeFiles/install.dir
+/root/workspace/build/pioasm/CMakeFiles/install/local.dir
+/root/workspace/build/pioasm/CMakeFiles/install/strip.dir
