@@ -5,7 +5,7 @@
 #include "hardware/pio.h"
 #include "hub75.pio.h"
 
-#include "eevee.h"
+#include "images/eevee.h"
 
 #define DATA_BASE_PIN 0
 #define DATA_N_PINS 6

@@ -1,0 +1,18 @@
+DEPENDENCIES
+arm-none-eabi-* cmake libusb1-devel gcc gcc-g++
+
+COPY
+pico-sdk
+picotool
+
+SETUP
+export PICO_SDK_PATH=~/pico-sdk
+mkdir -p ~/picotool/build
+cd ~/picotool/build
+cmake .. && make install
+
+BUILD
+mkdir -p build
+cd build
+cmake -Dpicotool_DIR=/usr/local/lib64/cmake/picotool -DPICO_BOARD=pico_w ,,
+make
