@@ -5,7 +5,6 @@
 #include "hardware/pio.h"
 #include "hub75.pio.h"
 
-#include "images/eevee.h"
 
 #define DATA_BASE_PIN 0
 #define DATA_N_PINS 6
@@ -29,7 +28,7 @@ Hub75::Hub75(uint panel_width, uint panel_height, uint panel_count, uint width, 
   frame_buffer = new uint32_t[width * height];
 
   for(int i = 0; i < width * height; ++i) {
-    frame_buffer[i] = image_rgb888[i];
+    frame_buffer[i] = 0x050000;
   }
 }
 
@@ -74,4 +73,10 @@ void Hub75::render() {
 
 const uint32_t* Hub75::get_frame() {
   return frame_buffer;
+}
+
+void Hub75::set_frame(const uint32_t* img) {
+  for(int i = 0; i < width * height; ++i) {
+    frame_buffer[i] = img[i];
+  }
 }

@@ -25,4 +25,5 @@ public:
   
   void render();
   const uint32_t* get_frame();
+  void set_frame(const uint32_t* img);
 };
