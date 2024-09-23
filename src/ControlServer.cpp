@@ -52,7 +52,6 @@ void ControlServer::listen() {
 
   netconn_listen(this->conn);
   netconn* client_conn;
-  netbuf* current_buf;
   while(1) {
 
     // Block until new client connection
@@ -63,25 +62,35 @@ void ControlServer::listen() {
     }
     blink(10, 100);
 
-    
-    if(netconn_recv(client_conn, &current_buf) != ERR_OK) {
-      blink(3, 1000);
-      printf("Failed to recv from a connection\n");
-      continue;
+    // Parse command from incoming data
+    std::string command;
+    netbuf* current_buf;
+    char* databuf;
+    uint16_t len;
+    while (netconn_recv(client_conn, current_buf) == ERR_OK) {
+      do {
+	netbuf_data(buf, &databuf, &len);
+	command.append(databuf, len);
+
+	size_t endPos = command.find('\r');
+	if (endPos != std::string::npos) {
+	  command.resize(pos);
+	  this->processCommand(command);
+	  command.clear();
+	}
+      } while (netbuf_next(databuf) >= 0);
     }
 
     std::string command = stringFromNetbuf(current_buf);
-
-    // TODO: do something with command
-    std::string response = command + " received";
-    netconn_write(client_conn, response.c_str(), response.length(), 0);
-    printf("Wrote response to command\n");
     
     netbuf_delete(current_buf);
     netconn_close(client_conn);
     netconn_delete(client_conn);
   }
-      
+}
+
+void ControlServer::processCommand(std::string command, std::string partial, netbuf* nbuf) {
+  if(command == "F
 }
 
 std::string ControlServer::stringFromNetbuf(netbuf* buf) {

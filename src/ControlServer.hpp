@@ -13,5 +13,4 @@ public:
   ~ControlServer();
   bool init();
   void listen();
-  std::string stringFromNetbuf(netbuf* buf);
 };
