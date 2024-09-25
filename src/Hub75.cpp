@@ -1,4 +1,4 @@
-#include "hub75.hpp"
+#include "Hub75.hpp"
 
 #include <pico/stdlib.h>
 #include "hardware/gpio.h"
@@ -71,7 +71,7 @@ void Hub75::render() {
     }
 }
 
-const uint32_t* Hub75::get_frame() {
+uint32_t* Hub75::get_frame() {
   return frame_buffer;
 }
 
@@ -79,4 +79,8 @@ void Hub75::set_frame(const uint32_t* img) {
   for(int i = 0; i < width * height; ++i) {
     frame_buffer[i] = img[i];
   }
+}
+
+constexpr void Hub75::set_pixel(const uint x, const uint y, const uint32_t pixel) {
+  if (y * this->width + x < width * height) this->frame_buffer[y * this->width + x] = pixel;
 }

@@ -13,7 +13,7 @@
 #define WIFI_SSID "Kingdom"
 #define WIFI_PASSWORD "absolutewizardz"
 
-void blink(int count, int duration) {
+static void blink(int count, int duration) {
   for (int i = 0; i < count; ++i) {
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
     vTaskDelay(duration);
@@ -23,7 +23,11 @@ void blink(int count, int duration) {
   cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
 }
 
-bool ControlServer::init() {
+static void netconn_write_str(netconn* conn, std::string str) {
+  netconn_write(conn, str.c_str(), str.length(), 0);
+}
+
+bool ControlServer::init(Hub75* matrix) {
   cyw43_arch_enable_sta_mode();
   
   printf("Connecting to Wi-Fi...");
@@ -32,6 +36,7 @@ bool ControlServer::init() {
     return false;
   }
   printf("Connected\n");
+  blink(3, 200);
 
   this->conn = netconn_new(NETCONN_TCP);
   if(this->conn == NULL) {
@@ -44,6 +49,8 @@ bool ControlServer::init() {
     netconn_delete(this->conn);
     return false;
   }
+
+  this->matrix = matrix;
 
   return true;
 }
@@ -64,43 +71,71 @@ void ControlServer::listen() {
 
     // Parse command from incoming data
     std::string command;
-    netbuf* current_buf;
-    char* databuf;
+    netbuf* nbuf;
+    char* data;
     uint16_t len;
-    while (netconn_recv(client_conn, current_buf) == ERR_OK) {
+    while (netconn_recv(client_conn, &nbuf) == ERR_OK) {
       do {
-	netbuf_data(buf, &databuf, &len);
-	command.append(databuf, len);
+	netbuf_data(nbuf, (void**)&data, &len);
+	command.append(data, len);
 
 	size_t endPos = command.find('\r');
 	if (endPos != std::string::npos) {
-	  command.resize(pos);
-	  this->processCommand(command);
+	  command.resize(endPos);
+	  this->processCommand(command, client_conn, &nbuf);
 	  command.clear();
+	  continue;
 	}
-      } while (netbuf_next(databuf) >= 0);
+      } while (netbuf_next(nbuf) >= 0);
+      netbuf_delete(nbuf);
     }
-
-    std::string command = stringFromNetbuf(current_buf);
     
-    netbuf_delete(current_buf);
     netconn_close(client_conn);
     netconn_delete(client_conn);
   }
 }
 
-void ControlServer::processCommand(std::string command, std::string partial, netbuf* nbuf) {
-  if(command == "F
-}
+void ControlServer::processCommand(std::string command, netconn* conn, netbuf** nbuf_in) {
 
-std::string ControlServer::stringFromNetbuf(netbuf* buf) {
-  void* dataptr;
-  uint16_t length;
-  std::string result;
-  
-  netbuf_data(buf, &dataptr, &length);
-  result.assign((char*)dataptr, length);
-  return result;
+  netbuf* nbuf = *nbuf_in;
+  if(command == "fullimg") {
+    uint32_t* frame_cursor = matrix->get_frame();
+
+    char* data;
+    uint16_t len;
+    netbuf_data(nbuf, (void**)&data, &len);
+    do {
+      // Skip characters until past carriage return reached (end of command, start of data)
+      ++data;
+      --len;
+    } while(*data != '\r');
+    memcpy(frame_cursor, data, len);
+    frame_cursor += len / 4;
+
+    uint32_t total = 0;
+    err_t current_err;
+    netconn_write_str(conn, "Starting loop\n");
+    while (total < matrix->width * matrix->height * 4 && (current_err = netconn_recv(conn, &nbuf)) == ERR_OK) {
+      do {
+	netbuf_data(nbuf, (void**)&data, &len);
+	if (total + len > matrix->width * matrix->height * 4) {
+	  netconn_write_str(conn, "Limit safeguard triggered");
+	  len = matrix->width * matrix->height * 4 - total;
+	}
+	
+	memcpy(frame_cursor, data, len);
+	
+	total += len;
+	frame_cursor += len / 4;
+	netconn_write_str(conn, "Wrote packet buffer part: " + std::to_string(total) + " bytes");
+      } while (netbuf_next(nbuf) >= 0);
+      netconn_write_str(conn, "Finished a full netbuf?");
+      netbuf_delete(nbuf);
+    }
+    netconn_write_str(conn, "Finished. " + std::to_string(total));
+    netconn_write_str(conn, "Error with next recv: " + std::to_string(current_err));
+    blink(4, 500);
+  }
 }
 
 ControlServer::ControlServer() {

@@ -1,5 +1,5 @@
 #include "ControlServer.hpp"
-#include "hub75.hpp"
+#include "Hub75.hpp"
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
@@ -18,7 +18,7 @@ void controlServerTask(void* context) {
 
   cyw43_arch_init();
   
-  if(!server->init()) {
+  if(!server->init(state->matrix)) {
     printf("Failed server init\n");
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
     while(1);
@@ -33,7 +33,7 @@ void drawTask(void* context) {
 
   while(1) {
     matrix->render();
-    vTaskDelay(20);
+    vTaskDelay(10);
   }
 }
 
