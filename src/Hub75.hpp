@@ -29,5 +29,6 @@ public:
   uint32_t* get_frame();
   void set_frame(const uint32_t* img);
   constexpr void set_pixel(const uint x, const uint y, const uint32_t pixel);
+  void overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height);
 
 };

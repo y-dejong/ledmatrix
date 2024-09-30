@@ -84,3 +84,16 @@ void Hub75::set_frame(const uint32_t* img) {
 constexpr void Hub75::set_pixel(const uint x, const uint y, const uint32_t pixel) {
   if (y * this->width + x < width * height) this->frame_buffer[y * this->width + x] = pixel;
 }
+
+void Hub75::overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height) {
+  for(uint j = 0; j < this->width; ++j) {
+    for(uint i = 0; i < this->height; ++i) {
+      uint destX = x + i;
+      uint destY = y + j;
+
+      if (destX >= 0 && destX < this->width && destY >= 0 && destY < this->height) {
+        this->frame_buffer[destY * this->width + destX] = data[j * src_width + i];
+      }
+    }
+  }
+}

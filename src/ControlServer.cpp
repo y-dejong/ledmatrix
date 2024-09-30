@@ -82,7 +82,9 @@ void ControlServer::listen() {
 	size_t endPos = command.find('\r');
 	if (endPos != std::string::npos) {
 	  command.resize(endPos);
-	  this->processCommand(command, client_conn, &nbuf);
+
+	  char* initialData = 
+	  this->processCommand(command, client_conn, nbuf);
 	  command.clear();
 	  continue;
 	}
@@ -95,9 +97,8 @@ void ControlServer::listen() {
   }
 }
 
-void ControlServer::processCommand(std::string command, netconn* conn, netbuf** nbuf_in) {
+void ControlServer::processCommand(std::string command, netconn* conn, netbuf* nbuf) {
 
-  netbuf* nbuf = *nbuf_in;
   if(command == "fullimg") {
     uint32_t* frame_cursor = matrix->get_frame();
 
@@ -135,6 +136,8 @@ void ControlServer::processCommand(std::string command, netconn* conn, netbuf** 
     netconn_write_str(conn, "Finished. " + std::to_string(total));
     netconn_write_str(conn, "Error with next recv: " + std::to_string(current_err));
     blink(4, 500);
+  } else if(command == "overlayimg") {
+    
   }
 }
 
