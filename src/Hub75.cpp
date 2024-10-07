@@ -5,7 +5,6 @@
 #include "hardware/pio.h"
 #include "hub75.pio.h"
 
-
 #define DATA_BASE_PIN 0
 #define DATA_N_PINS 6
 #define ROWSEL_BASE_PIN 6
@@ -14,17 +13,17 @@
 #define STROBE_PIN 12
 #define OEN_PIN 13
 
-Hub75::Hub75(uint panel_width, uint panel_height, uint panel_count, uint width, uint height) 
+Hub75::Hub75(uint panel_width, uint panel_height, uint panel_count, uint width, uint height)
   : panel_width(panel_width), panel_height(panel_height), panel_count(panel_count), width(width), height(height) {
   pio = pio0;
   sm_data = 0;
   sm_row = 1;
   data_prog_offs = pio_add_program(pio, &hub75_data_rgb888_program);
   row_prog_offs = pio_add_program(pio, &hub75_row_program);
-  
+
   hub75_data_rgb888_program_init(pio, sm_data, data_prog_offs, DATA_BASE_PIN, CLK_PIN);
   hub75_row_program_init(pio, sm_row, row_prog_offs, ROWSEL_BASE_PIN, ROWSEL_N_PINS, STROBE_PIN);
-  
+
   frame_buffer = new uint32_t[width * height];
 
   for(int i = 0; i < width * height; ++i) {
@@ -71,7 +70,7 @@ void Hub75::render() {
     }
 }
 
-uint32_t* Hub75::get_frame() {
+uint32_t* Hub75::get_frame() const {
   return frame_buffer;
 }
 
@@ -79,10 +78,6 @@ void Hub75::set_frame(const uint32_t* img) {
   for(int i = 0; i < width * height; ++i) {
     frame_buffer[i] = img[i];
   }
-}
-
-constexpr void Hub75::set_pixel(const uint x, const uint y, const uint32_t pixel) {
-  if (y * this->width + x < width * height) this->frame_buffer[y * this->width + x] = pixel;
 }
 
 void Hub75::overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height) {

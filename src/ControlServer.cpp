@@ -1,5 +1,6 @@
 #include "ControlServer.hpp"
 
+#include "FreeRTOSConfig.h"
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 #include <string>
@@ -9,6 +10,8 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+
+#include "apps/clock/Clock.hpp"
 
 #define WIFI_SSID "Kingdom"
 #define WIFI_PASSWORD "absolutewizardz"
@@ -83,7 +86,6 @@ void ControlServer::listen() {
 	if (endPos != std::string::npos) {
 	  command.resize(endPos);
 
-	  char* initialData = 
 	  this->processCommand(command, client_conn, nbuf);
 	  command.clear();
 	  continue;
@@ -91,7 +93,7 @@ void ControlServer::listen() {
       } while (netbuf_next(nbuf) >= 0);
       netbuf_delete(nbuf);
     }
-    
+
     netconn_close(client_conn);
     netconn_delete(client_conn);
   }
@@ -118,17 +120,17 @@ void ControlServer::processCommand(std::string command, netconn* conn, netbuf* n
     netconn_write_str(conn, "Starting loop\n");
     while (total < matrix->width * matrix->height * 4 && (current_err = netconn_recv(conn, &nbuf)) == ERR_OK) {
       do {
-	netbuf_data(nbuf, (void**)&data, &len);
-	if (total + len > matrix->width * matrix->height * 4) {
-	  netconn_write_str(conn, "Limit safeguard triggered");
-	  len = matrix->width * matrix->height * 4 - total;
-	}
-	
-	memcpy(frame_cursor, data, len);
-	
-	total += len;
-	frame_cursor += len / 4;
-	netconn_write_str(conn, "Wrote packet buffer part: " + std::to_string(total) + " bytes");
+		netbuf_data(nbuf, (void**)&data, &len);
+		if (total + len > matrix->width * matrix->height * 4) {
+		  netconn_write_str(conn, "Limit safeguard triggered");
+		  len = matrix->width * matrix->height * 4 - total;
+		}
+
+		memcpy(frame_cursor, data, len);
+
+		total += len;
+		frame_cursor += len / 4;
+		netconn_write_str(conn, "Wrote packet buffer part: " + std::to_string(total) + " bytes");
       } while (netbuf_next(nbuf) >= 0);
       netconn_write_str(conn, "Finished a full netbuf?");
       netbuf_delete(nbuf);
@@ -137,7 +139,10 @@ void ControlServer::processCommand(std::string command, netconn* conn, netbuf* n
     netconn_write_str(conn, "Error with next recv: " + std::to_string(current_err));
     blink(4, 500);
   } else if(command == "overlayimg") {
-    
+
+  } else if(command == "clock") {
+	TaskHandle_t clockAppHandle;
+	blink(6,100);
   }
 }
 
