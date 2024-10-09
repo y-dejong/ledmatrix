@@ -5,16 +5,13 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include <ctime>
+
 class Clock {
 
 private:
   Hub75& matrix;
-  
-  uint hour;
-  uint minute;
-  uint second;
-  uint month;
-  uint day;
+  std::time_t current_time;
 
   void initDateTime();
   void drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t color, const uint32_t bgcolor);

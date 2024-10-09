@@ -10,20 +10,11 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "util.hpp"
 #include "apps/clock/Clock.hpp"
 
 #define WIFI_SSID "Kingdom"
 #define WIFI_PASSWORD "absolutewizardz"
-
-static void blink(int count, int duration) {
-  for (int i = 0; i < count; ++i) {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-    vTaskDelay(duration);
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    vTaskDelay(duration);
-  }
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-}
 
 static void netconn_write_str(netconn* conn, std::string str) {
   netconn_write(conn, str.c_str(), str.length(), 0);
@@ -32,22 +23,17 @@ static void netconn_write_str(netconn* conn, std::string str) {
 bool ControlServer::init(Hub75* matrix) {
   cyw43_arch_enable_sta_mode();
 
-  printf("Connecting to Wi-Fi...");
   if(cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
-    printf("Failed\n");
     return false;
   }
-  printf("Connected\n");
   blink(3, 200);
 
   this->conn = netconn_new(NETCONN_TCP);
   if(this->conn == NULL) {
-    printf("Failed to create netconn\n");
     return false;
   }
 
   if(netconn_bind(this->conn, IP4_ADDR_ANY, 2314) != ERR_OK) {
-    printf("Failed to bind netconn\n");
     netconn_delete(this->conn);
     return false;
   }
@@ -148,7 +134,6 @@ void ControlServer::processCommand(std::string command, netconn* conn, netbuf* n
   } else if(command == "clock") {
 	TaskHandle_t clockAppHandle;
 	netconn_write_str(conn, "Starting clock app");
-	blink(3,1000);
 	xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
   } else if(command == "getclocktime") {
 

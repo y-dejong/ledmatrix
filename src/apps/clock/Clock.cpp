@@ -2,6 +2,7 @@
 #include "font.hpp"
 
 #include "Hub75.hpp"
+#include "util.hpp"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -9,7 +10,7 @@
 #include "lwip/api.h"
 #include <lwip/ip_addr.h>
 
-#include <time.h>
+#include <ctime>
 
 #define TIMEZONE_OFFSET -25200
 
@@ -39,16 +40,6 @@ constexpr static const char* monthAbbrevs[] = {
   "nov",
   "dec"
 };
-
-static void blink(int count, int duration) {
-  for (int i = 0; i < count; ++i) {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-    vTaskDelay(duration);
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    vTaskDelay(duration);
-  }
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-}
 
 void Clock::initDateTime() {
 
@@ -110,16 +101,10 @@ void Clock::initDateTime() {
 	uint32_t timestamp = data[40] << 24 | data[41] << 16 | data[42] << 8 | data[43];
 	timestamp -= 2208988800UL; // NTP Epoch offset
 	timestamp += TIMEZONE_OFFSET;
-	time_t timestamp_signed = (time_t)timestamp;
-	struct tm* timeinfo = gmtime(&timestamp_signed);
+	current_time = (std::time_t) timestamp;
 
-	// Populate time info
-	month = timeinfo->tm_mon;
-	day = timeinfo->tm_mday;
-	hour = timeinfo->tm_hour;
-	minute = timeinfo->tm_min;
-	second = timeinfo->tm_sec;
 	netbuf_delete(nbuf);
+
   } else {
 	blink(4, 700);
   }
@@ -131,19 +116,21 @@ void Clock::initDateTime() {
 void Clock::drawDateTime() {
   uint32_t color = 0xffffff;
 
-  drawLargeNumber5x7(hour%12/10, spriteDest[0][0], spriteDest[0][1], color, 0);
-  drawLargeNumber5x7(hour%12%10, spriteDest[1][0], spriteDest[1][1], color, 0);
-  drawLargeNumber5x7(minute/10, spriteDest[2][0], spriteDest[2][1], color, 0);
-  drawLargeNumber5x7(minute%10, spriteDest[3][0], spriteDest[3][1], color, 0);
-  drawAlphanumeric4x6((hour / 12 ? 'p' : 'a'), spriteDest[6][0], spriteDest[6][1], color, 0);
+  std::tm* timeinfo = std::gmtime(&current_time);
+  
+  drawLargeNumber5x7(timeinfo->tm_hour%12/10, spriteDest[0][0], spriteDest[0][1], color, 0);
+  drawLargeNumber5x7(timeinfo->tm_hour%12%10, spriteDest[1][0], spriteDest[1][1], color, 0);
+  drawLargeNumber5x7(timeinfo->tm_min/10, spriteDest[2][0], spriteDest[2][1], color, 0);
+  drawLargeNumber5x7(timeinfo->tm_min%10, spriteDest[3][0], spriteDest[3][1], color, 0);
+  drawAlphanumeric4x6((timeinfo->tm_hour / 12 ? 'p' : 'a'), spriteDest[6][0], spriteDest[6][1], color, 0);
   drawAlphanumeric4x6('m', spriteDest[6][0] + 5, spriteDest[6][1], color, 0);
 
-  drawAlphanumeric4x6(monthAbbrevs[month][0], spriteDest[4][0], spriteDest[4][1], color, 0);
-  drawAlphanumeric4x6(monthAbbrevs[month][1], spriteDest[4][0] + 5, spriteDest[4][1], color, 0);
-  drawAlphanumeric4x6(monthAbbrevs[month][2], spriteDest[4][0] + 10, spriteDest[4][1], color, 0);
+  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][0], spriteDest[4][0], spriteDest[4][1], color, 0);
+  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][1], spriteDest[4][0] + 5, spriteDest[4][1], color, 0);
+  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][2], spriteDest[4][0] + 10, spriteDest[4][1], color, 0);
 
-  drawAlphanumeric4x6(day/10, spriteDest[5][0], spriteDest[5][1], color, 0);
-  drawAlphanumeric4x6(day%10, spriteDest[5][0] + 5, spriteDest[5][1], color, 0);
+  drawAlphanumeric4x6(timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color, 0);
+  drawAlphanumeric4x6(timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color, 0);
 }
 
 void Clock::drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t color, const uint32_t bgcolor) {
@@ -163,7 +150,7 @@ void Clock::drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t
 	  matrix.set_pixel(x, y+2, currentColor);
 	  matrix.set_pixel(x+1, y+2, currentColor);
 	  matrix.set_pixel(x+2, y+2, currentColor);
-	  
+
 	  // Clear space between pixels
 	  matrix.set_pixel(x+3, y, bgcolor);
 	  matrix.set_pixel(x+3, y+1, bgcolor);
@@ -206,45 +193,13 @@ void Clock::run() {
 	matrix.set_pixel(i % 64, i / 64, 0x000000);
   }
 
+  drawDateTime();
+  bool needs_redraw;
   while (1) {
-	// Update current time
-	bool needsRedraw = true;
-
-	if(++second >= 60) {
-	  second = 0;
-	  ++minute;
-	}
-
-	if(minute >= 60) {
-	  minute = 0;
-	  ++hour;
-	  needsRedraw = true;
-	}
-
-	if(hour >= 24) {
-	  hour = 0;
-	  ++day;
-	  needsRedraw = true;
-	}
-
-	if(day >= 30) { // TODO variable length days
-	  day = 1;
-	  ++month;
-	  needsRedraw = true;
-	}
-
-	if(month >= 12) {
-	  month = 0;
-	  needsRedraw = true;
-	}
-
-	drawDateTime();
+	// Update current time, and redraw if new minute
+	if (++current_time % 60 == 0) drawDateTime();
 	vTaskDelay(1000); // Delay for 1 second
   }
-
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-
-
 }
 
 Clock::Clock(Hub75& matrix) : matrix(matrix) {
