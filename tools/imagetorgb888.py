@@ -113,4 +113,4 @@ if __name__ == "__main__":
     #write_c_array(rgb888_array, width, height, output_file)
 
     # Write to network
-    write_to_network(rgb888_array, width, height, "192.168.0.147", 2314)
+    write_to_network(rgb888_array, width, height, "192.168.0.146", 2314)

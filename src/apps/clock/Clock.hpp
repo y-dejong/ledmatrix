@@ -9,6 +9,7 @@ class Clock {
 
 private:
   Hub75& matrix;
+  
   uint hour;
   uint minute;
   uint second;

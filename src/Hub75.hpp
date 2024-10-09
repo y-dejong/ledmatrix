@@ -32,7 +32,3 @@ public:
   void overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height);
 
 };
-
-inline void Hub75::set_pixel(const uint x, const uint y, const uint32_t pixel) {
-  if (y * this->width + x < width * height) this->frame_buffer[y * this->width + x] = pixel;
-}

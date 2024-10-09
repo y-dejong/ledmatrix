@@ -6,15 +6,23 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "lwip/api.h"
+#include <lwip/ip_addr.h>
+
+#include <time.h>
+
+#define TIMEZONE_OFFSET -25200
+
 // All in row/column format
-constexpr static uint spriteDest[7][2] = {
+constexpr static uint spriteDest[8][2] = {
 	{1, 3}, // Hour, 10s digit
 	{25, 3}, // Hour, 1s digit
 	{1, 35}, // Minute, 10s digit
 	{25, 35}, // Minute, 1s digit
 	{46, 2}, // Month text
 	{46, 10}, // Day text
-	{46, 20} // Weather text
+	{46, 20}, // Weather text
+	{1, 58} // AM/PM
 };
 
 constexpr static const char* monthAbbrevs[] = {
@@ -32,22 +40,103 @@ constexpr static const char* monthAbbrevs[] = {
   "dec"
 };
 
+static void blink(int count, int duration) {
+  for (int i = 0; i < count; ++i) {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    vTaskDelay(duration);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    vTaskDelay(duration);
+  }
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+}
+
 void Clock::initDateTime() {
-  // TODO: Get a time/date over TCP
-  hour = 13;
-  minute = 54;
-  month = 3;
-  day = 27;
-  second = 0;
+
+  // New netconn for UDP
+  netconn* conn = netconn_new(NETCONN_UDP);
+  if(conn == NULL) {
+	blink(3, 500);
+	return;
+  }
+
+  // Get time server IP address using DNS
+  ip_addr_t ntp_addr;
+  if(netconn_gethostbyname("time.cloudflare.com", &ntp_addr) != ERR_OK) {
+	blink(3, 500);
+	netconn_delete(conn);
+	return;
+  }
+
+  // Connect to time server
+  if (netconn_connect(conn, &ntp_addr, 123)) {
+	blink(3, 500);
+	netconn_delete(conn);
+	return;
+  }
+
+  // Create network buffer for data
+  netbuf* nbuf = netbuf_new();
+  if (nbuf == NULL) {
+	blink(3, 500);
+	netconn_delete(conn);
+	return;
+  }
+
+  // Populate network buffer
+  unsigned char nbuf_data[48] = {0x1b};
+  if (netbuf_ref(nbuf, nbuf_data, sizeof(nbuf_data)) != ERR_OK) {
+	blink(3, 500);
+	netbuf_delete(nbuf);
+	netconn_delete(conn);
+  }
+
+  // Send NTP message
+  if(netconn_send(conn, nbuf) != ERR_OK) {
+	blink(3, 500);
+	netbuf_delete(nbuf);
+	netconn_delete(conn);
+  }
+  netbuf_delete(nbuf);
+
+  // Wait for UDP reply
+  if(netconn_recv(conn, &nbuf) == ERR_OK) {
+
+	// Retrieve data
+	unsigned char* data;
+	unsigned short datalen;
+	netbuf_data(nbuf, (void**)&data, &datalen);
+
+	// Get timestamp and convert to unix time
+	uint32_t timestamp = data[40] << 24 | data[41] << 16 | data[42] << 8 | data[43];
+	timestamp -= 2208988800UL; // NTP Epoch offset
+	timestamp += TIMEZONE_OFFSET;
+	time_t timestamp_signed = (time_t)timestamp;
+	struct tm* timeinfo = gmtime(&timestamp_signed);
+
+	// Populate time info
+	month = timeinfo->tm_mon;
+	day = timeinfo->tm_mday;
+	hour = timeinfo->tm_hour;
+	minute = timeinfo->tm_min;
+	second = timeinfo->tm_sec;
+	netbuf_delete(nbuf);
+  } else {
+	blink(4, 700);
+  }
+
+  netconn_close(conn);
+  netconn_delete(conn);
 }
 
 void Clock::drawDateTime() {
   uint32_t color = 0xffffff;
 
-  drawLargeNumber5x7(hour/10, spriteDest[0][0], spriteDest[0][1], color, 0);
-  drawLargeNumber5x7(hour%10, spriteDest[1][0], spriteDest[1][1], color, 0);
+  drawLargeNumber5x7(hour%12/10, spriteDest[0][0], spriteDest[0][1], color, 0);
+  drawLargeNumber5x7(hour%12%10, spriteDest[1][0], spriteDest[1][1], color, 0);
   drawLargeNumber5x7(minute/10, spriteDest[2][0], spriteDest[2][1], color, 0);
   drawLargeNumber5x7(minute%10, spriteDest[3][0], spriteDest[3][1], color, 0);
+  drawAlphanumeric4x6((hour / 12 ? 'p' : 'a'), spriteDest[6][0], spriteDest[6][1], color, 0);
+  drawAlphanumeric4x6('m', spriteDest[6][0] + 5, spriteDest[6][1], color, 0);
 
   drawAlphanumeric4x6(monthAbbrevs[month][0], spriteDest[4][0], spriteDest[4][1], color, 0);
   drawAlphanumeric4x6(monthAbbrevs[month][1], spriteDest[4][0] + 5, spriteDest[4][1], color, 0);
@@ -59,7 +148,7 @@ void Clock::drawDateTime() {
 
 void Clock::drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t color, const uint32_t bgcolor) {
 
-  uint original_x = x;
+  const uint original_x = x;
   for (uint i = 0; i < 7; ++i) {
 	x = original_x;
 	for (uint j = 0; j < 5; ++j) {
@@ -103,15 +192,10 @@ void Clock::drawAlphanumeric4x6(const char c, uint x, uint y, const uint32_t col
 
 void Clock::run() {
 
-  // Get current time
-
-  // LOOP
-  // Show current time
-  // delay 1 second
-  // update sprite/blink, update time if needed
-
+  // Retrieve current time over internet
   initDateTime();
 
+  // Set screen to black
   for(uint i = 0; i < 64 * 64; ++i) {
 	matrix.set_pixel(i % 64, i / 64, 0x000000);
   }

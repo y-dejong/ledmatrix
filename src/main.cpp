@@ -12,6 +12,7 @@
 typedef struct FullState_struct {
   Hub75* matrix;
   ControlServer* server;
+  void* appState;
 } FullState;
 
 void controlServerTask(void* context) {
@@ -23,9 +24,9 @@ void controlServerTask(void* context) {
   if(!server->init(state->matrix)) {
     printf("Failed server init\n");
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    while(1);
     return;
   }
+
   server->listen();
 }
 
@@ -42,19 +43,15 @@ void drawTask(void* context) {
 int main() {
   stdio_init_all();
 
-  FullState state;
+  FullState* state = new FullState();
   Hub75 matrix(64, 32, 2, 64, 64);
   ControlServer server;
-  state.matrix = &matrix;
-  state.server = &server;
+  state->matrix = &matrix;
+  state->server = &server;
 
   TaskHandle_t controlServerHandle, drawHandle;
-  xTaskCreate(controlServerTask, "ControlServerThread", 4096, &state, tskIDLE_PRIORITY + 1UL, &controlServerHandle);
-  xTaskCreate(drawTask, "DrawThread", configMINIMAL_STACK_SIZE, &state, tskIDLE_PRIORITY + 5UL, &drawHandle);
-
-  TaskHandle_t clockAppHandle;
-  xTaskCreate(Clock::runTask, "ClockAppThread", configMINIMAL_STACK_SIZE, &matrix, tskIDLE_PRIORITY + 2UL, &clockAppHandle);
-
+  xTaskCreate(controlServerTask, "ControlServerThread", 4096, state, tskIDLE_PRIORITY + 1UL, &controlServerHandle);
+  xTaskCreate(drawTask, "DrawThread", configMINIMAL_STACK_SIZE, state, tskIDLE_PRIORITY + 5UL, &drawHandle);
 
   vTaskStartScheduler();
 

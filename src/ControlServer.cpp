@@ -6,7 +6,6 @@
 #include <string>
 
 #include "lwip/api.h"
-#include "lwip/priv/api_msg.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -32,7 +31,7 @@ static void netconn_write_str(netconn* conn, std::string str) {
 
 bool ControlServer::init(Hub75* matrix) {
   cyw43_arch_enable_sta_mode();
-  
+
   printf("Connecting to Wi-Fi...");
   if(cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
     printf("Failed\n");
@@ -46,7 +45,7 @@ bool ControlServer::init(Hub75* matrix) {
     printf("Failed to create netconn\n");
     return false;
   }
-  
+
   if(netconn_bind(this->conn, IP4_ADDR_ANY, 2314) != ERR_OK) {
     printf("Failed to bind netconn\n");
     netconn_delete(this->conn);
@@ -79,17 +78,18 @@ void ControlServer::listen() {
     uint16_t len;
     while (netconn_recv(client_conn, &nbuf) == ERR_OK) {
       do {
-	netbuf_data(nbuf, (void**)&data, &len);
-	command.append(data, len);
+		netbuf_data(nbuf, (void**)&data, &len);
+		command.append(data, len);
 
-	size_t endPos = command.find('\r');
-	if (endPos != std::string::npos) {
-	  command.resize(endPos);
+		// If return carriage found, process the command
+		size_t endPos = command.find('\r');
+		if (endPos != std::string::npos) {
+		  command.resize(endPos);
 
-	  this->processCommand(command, client_conn, nbuf);
-	  command.clear();
-	  continue;
-	}
+		  this->processCommand(command, client_conn, nbuf);
+		  command.clear();
+		  continue;
+		}
       } while (netbuf_next(nbuf) >= 0);
       netbuf_delete(nbuf);
     }
@@ -99,50 +99,59 @@ void ControlServer::listen() {
   }
 }
 
+void ControlServer::fullImg(netconn* conn, netbuf* nbuf) {
+  uint32_t* frame_cursor = matrix->get_frame();
+
+  char* data;
+  uint16_t len;
+  netbuf_data(nbuf, (void**)&data, &len);
+  do {
+    // Skip characters until past carriage return reached (end of command, start of data)
+    ++data;
+    --len;
+  } while(*data != '\r');
+  memcpy(frame_cursor, data, len);
+  frame_cursor += len / 4;
+
+  uint32_t total = 0;
+  err_t current_err;
+  netconn_write_str(conn, "Starting loop\n");
+  while (total < matrix->width * matrix->height * 4 && (current_err = netconn_recv(conn, &nbuf)) == ERR_OK) {
+    do {
+	  netbuf_data(nbuf, (void**)&data, &len);
+	  if (total + len > matrix->width * matrix->height * 4) {
+		netconn_write_str(conn, "Limit safeguard triggered");
+		len = matrix->width * matrix->height * 4 - total;
+	  }
+
+	  memcpy(frame_cursor, data, len);
+
+	  total += len;
+	  frame_cursor += len / 4;
+	  netconn_write_str(conn, "Wrote packet buffer part: " + std::to_string(total) + " bytes");
+    } while (netbuf_next(nbuf) >= 0);
+    netconn_write_str(conn, "Finished a full netbuf?");
+    netbuf_delete(nbuf);
+  }
+  netconn_write_str(conn, "Finished. " + std::to_string(total));
+  netconn_write_str(conn, "Error with next recv: " + std::to_string(current_err));
+  blink(4, 500);
+}
+
 void ControlServer::processCommand(std::string command, netconn* conn, netbuf* nbuf) {
 
   if(command == "fullimg") {
-    uint32_t* frame_cursor = matrix->get_frame();
-
-    char* data;
-    uint16_t len;
-    netbuf_data(nbuf, (void**)&data, &len);
-    do {
-      // Skip characters until past carriage return reached (end of command, start of data)
-      ++data;
-      --len;
-    } while(*data != '\r');
-    memcpy(frame_cursor, data, len);
-    frame_cursor += len / 4;
-
-    uint32_t total = 0;
-    err_t current_err;
-    netconn_write_str(conn, "Starting loop\n");
-    while (total < matrix->width * matrix->height * 4 && (current_err = netconn_recv(conn, &nbuf)) == ERR_OK) {
-      do {
-		netbuf_data(nbuf, (void**)&data, &len);
-		if (total + len > matrix->width * matrix->height * 4) {
-		  netconn_write_str(conn, "Limit safeguard triggered");
-		  len = matrix->width * matrix->height * 4 - total;
-		}
-
-		memcpy(frame_cursor, data, len);
-
-		total += len;
-		frame_cursor += len / 4;
-		netconn_write_str(conn, "Wrote packet buffer part: " + std::to_string(total) + " bytes");
-      } while (netbuf_next(nbuf) >= 0);
-      netconn_write_str(conn, "Finished a full netbuf?");
-      netbuf_delete(nbuf);
-    }
-    netconn_write_str(conn, "Finished. " + std::to_string(total));
-    netconn_write_str(conn, "Error with next recv: " + std::to_string(current_err));
-    blink(4, 500);
+	fullImg(conn, nbuf);
   } else if(command == "overlayimg") {
+	netconn_write_str(conn, "Drawing overlay image");
 
   } else if(command == "clock") {
 	TaskHandle_t clockAppHandle;
-	blink(6,100);
+	netconn_write_str(conn, "Starting clock app");
+	blink(3,1000);
+	xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
+  } else if(command == "getclocktime") {
+
   }
 }
 
