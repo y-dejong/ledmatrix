@@ -156,18 +156,24 @@ void Clock::drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t
 	  uint32_t currentColor = (numeric5x7_min[number][currentPixel / 8] >> currentPixel % 8 & 1) ? color : bgcolor;
 	  matrix.set_pixel(x, y, currentColor);
 	  matrix.set_pixel(x+1, y, currentColor);
+	  matrix.set_pixel(x+2, y, currentColor);
 	  matrix.set_pixel(x, y+1, currentColor);
 	  matrix.set_pixel(x+1, y+1, currentColor);
-
+	  matrix.set_pixel(x+2, y+1, currentColor);
+	  matrix.set_pixel(x, y+2, currentColor);
+	  matrix.set_pixel(x+1, y+2, currentColor);
+	  matrix.set_pixel(x+2, y+2, currentColor);
+	  
 	  // Clear space between pixels
-	  matrix.set_pixel(x+2, y, bgcolor);
-	  matrix.set_pixel(x+2, y+1, bgcolor);
-	  matrix.set_pixel(x+2, y+2, bgcolor);
-	  matrix.set_pixel(x, y+2, bgcolor);
-	  matrix.set_pixel(x+1, y+2, bgcolor);
-	  x += 3;
+	  matrix.set_pixel(x+3, y, bgcolor);
+	  matrix.set_pixel(x+3, y+1, bgcolor);
+	  matrix.set_pixel(x+3, y+2, bgcolor);
+	  matrix.set_pixel(x, y+3, bgcolor);
+	  matrix.set_pixel(x+1, y+3, bgcolor);
+	  matrix.set_pixel(x+2, y+3, bgcolor);
+	  x += 4;
 	}
-	y += 3;
+	y += 4;
   }
 }
 
