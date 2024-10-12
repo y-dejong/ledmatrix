@@ -32,13 +32,21 @@ def image_to_rgb888_array(img, size=(64,64)):
         print(f"Error processing the image: {e}")
         sys.exit(1)
 
+def image_to_rgb565_array(img, size=(64, 64)):
+    img = img.convert('RGB')
+    img = img.resize(size)
+
+    pixels = list(img.getdata())
+
+    return [((pixel[2] >> 3) << 11) | ((pixel[1] >> 2) << 5) | (pixel[0] >> 3) for pixel in pixels]
+
 def animation_to_rgb888_arrays(img, size=(64, 64)):
     frames = []
 
     try:
         img.seek(1)
-        for i in range(90):
-            frames.append(image_to_rgb888_array(img, size))
+        while True:
+            frames.append(image_to_rgb565_array(img, size))
             img.seek(img.tell() + 1)
     except EOFError:
         pass
@@ -70,7 +78,7 @@ def export_animation(frames, name, size):
     with open(f"img_{name}.h", 'w') as f:
         # Write the array size and declaration in C syntax
         f.write(f"// Image dimensions: {size[0]}x{size[1]}\n")
-        f.write(f"const uint32_t img_{name}[{len(frames)}][{size[0] * size[1]}] = {{\n")
+        f.write(f"const uint16_t img_{name}[{len(frames)}][{size[0] * size[1]}] = {{\n")
 
         for frame in frames:
             f.write("    {\n")
@@ -82,7 +90,7 @@ def export_animation(frames, name, size):
                     f.write("        ")  # Indent for new rows
 
                 gamma_val = gamma_correct(value, 2.2)
-                f.write(f"0x{gamma_val:06X}, ")  # Hexadecimal with leading 0x
+                f.write(f"0x{gamma_val:04X}, ")  # Hexadecimal with leading 0x
 
                 # Line break at the end of each row
                 if (i + 1) % size[0] == 0:

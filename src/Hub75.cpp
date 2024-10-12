@@ -4,6 +4,8 @@
 #include "hardware/pio.h"
 #include "hub75.pio.h"
 
+#include <math.h>
+
 #define DATA_BASE_PIN 0
 #define DATA_N_PINS 6
 #define ROWSEL_BASE_PIN 6
@@ -89,5 +91,54 @@ void Hub75::overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint sr
         this->frame_buffer[destY * this->width + destX] = data[j * src_width + i];
       }
     }
+  }
+}
+
+uint32_t Hub75::gamma_correct_565_888(uint16_t pixel, const float gamma) {
+  uint8_t r5 = (pixel >> 11) & 0x1F;
+  uint8_t g6 = (pixel >> 5) & 0x3F;
+  uint8_t b5 = pixel & 0x1F;
+
+  uint32_t r8 = (r5 << 3) | (r5 >> 2);
+  uint32_t g8 = (g6 << 2) | (g6 >> 4);
+  uint32_t b8 = (b5 << 3) | (b5 >> 2);
+
+  r8 = r8 * r8 * r8 / (255*255);
+  r8 = r8 > 255 ? 255 : r8;
+
+  g8 = g8 * g8 * g8 / (255*255);
+  g8 = g8 > 255 ? 255 : g8;
+
+  b8 = b8 * b8 * b8 / (255*255);
+  b8 = b8 > 255 ? 255 : b8;
+
+    // Pack the 8-bit RGB values into a 24-bit RGB888 format
+    return (r8 << 16) | (g8 << 8) | (b8);
+}
+
+uint32_t Hub75::gamma_correct_888(uint32_t pixel, const float gamma) {
+    uint8_t r_5bit = (pixel >> 11) & 0x1F;
+    uint8_t g_6bit = (pixel >> 5) & 0x3F;
+    uint8_t b_5bit = pixel & 0x1F;
+
+	uint8_t r8 = (pixel >> 16) & 0xff;
+	uint8_t g8 = (pixel >> 8) & 0xff;
+	uint8_t b8 = pixel & 0xff;
+
+    float r_corrected = powf((float)r8 / 255.0f, gamma);
+    float g_corrected = powf((float)g8 / 255.0f, gamma);
+    float b_corrected = powf((float)b8 / 255.0f, gamma);
+
+    uint8_t r_8bit = (uint8_t)(r_corrected * 255.0f);
+    uint8_t g_8bit = (uint8_t)(g_corrected * 255.0f);
+    uint8_t b_8bit = (uint8_t)(b_corrected * 255.0f);
+
+    // Pack the 8-bit RGB values into a 24-bit RGB888 format
+    return (r_8bit << 16) | (g_8bit << 8) | (b_8bit);
+}
+
+void Hub75::gamma_correct_frame() {
+  for(uint i = 0; i < width * height; ++i) {
+	frame_buffer[i] = gamma_correct_888(frame_buffer[i], 2.2f);
   }
 }
