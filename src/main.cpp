@@ -36,7 +36,7 @@ void drawTask(void* context) {
 
   while(1) {
     matrix->render();
-    vTaskDelay(10);
+    vTaskDelay(5);
   }
 }
 

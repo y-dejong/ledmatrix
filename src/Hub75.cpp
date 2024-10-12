@@ -1,7 +1,6 @@
 #include "Hub75.hpp"
 
 #include <pico/stdlib.h>
-#include "hardware/gpio.h"
 #include "hardware/pio.h"
 #include "hub75.pio.h"
 

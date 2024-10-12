@@ -12,6 +12,7 @@
 
 #include "util.hpp"
 #include "apps/clock/Clock.hpp"
+#include "apps/animation/Animation.hpp"
 
 #define WIFI_SSID "Kingdom"
 #define WIFI_PASSWORD "absolutewizardz"
@@ -40,6 +41,8 @@ bool ControlServer::init(Hub75* matrix) {
 
   this->matrix = matrix;
 
+  // Clock app by default
+  xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
   return true;
 }
 
@@ -127,16 +130,21 @@ void ControlServer::fullImg(netconn* conn, netbuf* nbuf) {
 void ControlServer::processCommand(std::string command, netconn* conn, netbuf* nbuf) {
 
   if(command == "fullimg") {
+	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
 	fullImg(conn, nbuf);
   } else if(command == "overlayimg") {
 	netconn_write_str(conn, "Drawing overlay image");
 
   } else if(command == "clock") {
-	TaskHandle_t clockAppHandle;
 	netconn_write_str(conn, "Starting clock app");
+	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
 	xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
   } else if(command == "getclocktime") {
 
+  } else if(command == "animate") {
+	netconn_write_str(conn, "Animating");
+	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
+	xTaskCreate(runAnimationTask, "AnimationAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
   }
 }
 
