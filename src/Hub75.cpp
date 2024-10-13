@@ -94,22 +94,22 @@ void Hub75::overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint sr
   }
 }
 
-uint32_t Hub75::gamma_correct_565_888(uint16_t pixel, const float gamma) {
+uint32_t Hub75::gamma_correct_565_888(uint16_t pixel) {
   uint8_t r5 = (pixel >> 11) & 0x1F;
   uint8_t g6 = (pixel >> 5) & 0x3F;
   uint8_t b5 = pixel & 0x1F;
 
-  uint32_t r8 = (r5 << 3) | (r5 >> 2);
-  uint32_t g8 = (g6 << 2) | (g6 >> 4);
-  uint32_t b8 = (b5 << 3) | (b5 >> 2);
+  uint32_t r8 = (uint8_t)((r5 << 3) | (r5 >> 2));
+  uint32_t g8 = (uint8_t)((g6 << 2) | (g6 >> 4));
+  uint32_t b8 = (uint8_t)((b5 << 3) | (b5 >> 2));
 
-  r8 = r8 * r8 * r8 / (255*255);
+  r8 = r8 * r8 / 255;
   r8 = r8 > 255 ? 255 : r8;
 
-  g8 = g8 * g8 * g8 / (255*255);
+  g8 = g8 * g8 / 255;
   g8 = g8 > 255 ? 255 : g8;
 
-  b8 = b8 * b8 * b8 / (255*255);
+  b8 = b8 * b8 / 255;
   b8 = b8 > 255 ? 255 : b8;
 
     // Pack the 8-bit RGB values into a 24-bit RGB888 format

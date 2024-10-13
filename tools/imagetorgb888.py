@@ -18,10 +18,34 @@ def image_or_url_to_path(path):
         print("Invalid")
         return None
 
+def crop_and_resize(image, target_size):
+    original_aspect = image.size[0] / image.size[1]
+    target_aspect = target_size[0] / target_size[1]
+
+    # Determine the size of the crop
+    if original_aspect > target_aspect:
+        # Image is wider than the target aspect ratio, crop the width
+        new_width = int(image.size[1] * target_aspect)
+        new_height = image.size[1]
+        left = (image.size[0] - new_width) // 2
+        top = 0
+        right = left + new_width
+        bottom = image.size[1]
+    else:
+        # Image is taller than the target aspect ratio, crop the height
+        new_width = image.size[0]
+        new_height = int(image.size[0] / target_aspect)
+        left = 0
+        top = (image.size[1] - new_height) // 2
+        right = image.size[0]
+        bottom = top + new_height
+
+    return image.crop((left, top, right, bottom)).resize(target_size, Image.LANCZOS)
+
 def image_to_rgb888_array(img, size=(64,64)):
     try:
         img = img.convert('RGB')
-        img = img.resize(size)
+        img = crop_and_resize(img, size)
 
         pixels = list(img.getdata())
 
@@ -34,13 +58,13 @@ def image_to_rgb888_array(img, size=(64,64)):
 
 def image_to_rgb565_array(img, size=(64, 64)):
     img = img.convert('RGB')
-    img = img.resize(size)
+    img = img.crop(size)
 
     pixels = list(img.getdata())
 
     return [((pixel[2] >> 3) << 11) | ((pixel[1] >> 2) << 5) | (pixel[0] >> 3) for pixel in pixels]
 
-def animation_to_rgb888_arrays(img, size=(64, 64)):
+def animation_to_rgb565_arrays(img, size=(64, 64)):
     frames = []
 
     try:
@@ -89,8 +113,7 @@ def export_animation(frames, name, size):
                 if i % size[0] == 0:
                     f.write("        ")  # Indent for new rows
 
-                gamma_val = gamma_correct(value, 2.2)
-                f.write(f"0x{gamma_val:04X}, ")  # Hexadecimal with leading 0x
+                f.write(f"0x{value:04X}, ")  # Hexadecimal with leading 0x
 
                 # Line break at the end of each row
                 if (i + 1) % size[0] == 0:
@@ -162,7 +185,7 @@ def main():
         img = Image.open(img_path)
 
         if img.is_animated:
-            animation = animation_to_rgb888_arrays(img)
+            animation = animation_to_rgb565_arrays(img)
             export_animation(animation, os.path.splitext(os.path.basename(img.filename))[0], (64, 64))
         else:
             export_rgb888(image_to_rgb888_array(img), os.path.splitext(os.path.basename(img.filename))[0], (64, 64))

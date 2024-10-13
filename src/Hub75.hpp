@@ -1,3 +1,4 @@
+
 #pragma once
 
 #include "hardware/pio.h"
@@ -31,7 +32,7 @@ public:
   void set_pixel(const uint x, const uint y, const uint32_t pixel);
   void overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height);
 
-  uint32_t gamma_correct_565_888(uint16_t pixel, float gamma);
+  uint32_t gamma_correct_565_888(uint16_t pixel);
   uint32_t gamma_correct_888(uint32_t pixel, float gamma);
   void gamma_correct_frame();
 
