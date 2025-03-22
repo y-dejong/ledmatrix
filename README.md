@@ -10,6 +10,6 @@ Demos shown here are made using a pair of [Adafruit 64x32 RGB LED Matrix - 4mm p
 - Render a 3d object file!! (Used as an open-ended final project for my computer graphics class)
 
 ## Photos
-![Eevee](img/eevee.webp)
-![Clock](img/clock.webp)
-![Landscape](img/PXL_20241012_060925800.mp4)
+<img src="img/eevee.webp" width="400px">
+<img src="img/clock.webp" width="400px">
+<img src="img/PXL_20241012_060925800.gif" width="400px">
