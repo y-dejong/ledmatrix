@@ -11,6 +11,7 @@
 #include <lwip/ip_addr.h>
 
 #include <ctime>
+#include <algorithm>
 
 #define TIMEZONE_OFFSET -25200
 
@@ -40,6 +41,23 @@ constexpr static const char* monthAbbrevs[] = {
   "nov",
   "dec"
 };
+
+uint32_t adjust_brightness(uint32_t color, float brightness) {
+  // Extract RGB components
+  uint8_t r = (color >> 16) & 0xFF;
+  uint8_t g = (color >> 8) & 0xFF;
+  uint8_t b = color & 0xFF;
+  brightness = std::clamp(brightness, 0.0f, 1.0f);
+
+    int new_r = static_cast<int>(r * brightness);
+  int new_g = static_cast<int>(g * brightness);
+  int new_b = static_cast<int>(b * brightness);
+
+  // Recombine into RGB888 format
+  return (static_cast<uint32_t>(new_r) << 16) | 
+         (static_cast<uint32_t>(new_g) << 8) | 
+         static_cast<uint32_t>(new_b);
+}
 
 void Clock::initDateTime() {
 
@@ -118,8 +136,14 @@ void Clock::drawDateTime() {
 
   std::tm* timeinfo = std::gmtime(&current_time);
 
+  float brightness = 1.0f;
+  if (timeinfo->tm_hour < 7 || timeinfo->tm_hour > 22) {
+	brightness = 0.3f;
+  }
+
   int hour = timeinfo->tm_hour%12;
   hour = (hour == 0 ? 12 : hour);
+
   color = 0x22a6f2;
   drawLargeNumber5x7(hour/10, spriteDest[0][0], spriteDest[0][1], color, 0);
   drawLargeNumber5x7(hour%10, spriteDest[1][0], spriteDest[1][1], color, 0);

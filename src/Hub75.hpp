@@ -30,7 +30,7 @@ public:
   uint32_t* get_frame() const;
   void set_frame(const uint32_t* img);
   void set_pixel(const uint x, const uint y, const uint32_t pixel);
-  void overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height);
+  void overlay_image(uint32_t* data, uint x, uint y, uint src_width, uint src_height);
 
   uint32_t gamma_correct_565_888(uint16_t pixel);
   uint32_t gamma_correct_888(uint32_t pixel, float gamma);

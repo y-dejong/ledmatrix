@@ -12,7 +12,6 @@
 typedef struct FullState_struct {
   Hub75* matrix;
   ControlServer* server;
-  void* appState;
 } FullState;
 
 void controlServerTask(void* context) {

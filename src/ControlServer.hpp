@@ -13,9 +13,8 @@ class ControlServer {
 private:
   netconn* conn;
   Hub75* matrix;
+  void* app;
   TaskHandle_t currentAppHandle;
-
-  void fullImg(netconn* conn, netbuf* nbuf);
 
 public:
   ControlServer();

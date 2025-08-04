@@ -81,7 +81,7 @@ void Hub75::set_frame(const uint32_t* img) {
   }
 }
 
-void Hub75::overlayImage(uint32_t* data, uint x, uint y, uint src_width, uint src_height) {
+void Hub75::overlay_image(uint32_t* data, uint x, uint y, uint src_width, uint src_height) {
   for(uint j = 0; j < this->width; ++j) {
     for(uint i = 0; i < this->height; ++i) {
       uint destX = x + i;

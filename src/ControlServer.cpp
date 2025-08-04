@@ -13,20 +13,31 @@
 #include "util.hpp"
 #include "apps/clock/Clock.hpp"
 #include "apps/animation/Animation.hpp"
+#include "apps/pictureframe/PictureFrame.hpp"
 
-#define WIFI_SSID "Kingdom"
-#define WIFI_PASSWORD "absolutewizardz"
+// I don't like these two
+#define STRINGIFY(x) #x
+#define TOSTRING(x) STRINGIFY(x)
 
 static void netconn_write_str(netconn* conn, std::string str) {
   netconn_write(conn, str.c_str(), str.length(), 0);
 }
 
+/*inline void netconn_write_str(netconn* conn, const char* str) {
+  netconn_write(conn, str, strnlen(str, 512), 0);
+}*/
+
 bool ControlServer::init(Hub75* matrix) {
   cyw43_arch_enable_sta_mode();
 
-  if(cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+#if defined(WIFI_SSID) and defined(WIFI_PASSWORD)
+    if(cyw43_arch_wifi_connect_timeout_ms(TOSTRING(WIFI_SSID), TOSTRING(WIFI_PASSWORD), CYW43_AUTH_WPA2_AES_PSK, 30000)) {
     return false;
   }
+
+#else
+#error "SSID or PASSWORD are not defined. Define it via environment variable and pass it to CMake."
+#endif
   blink(3, 200);
 
   this->conn = netconn_new(NETCONN_TCP);
@@ -88,63 +99,35 @@ void ControlServer::listen() {
   }
 }
 
-void ControlServer::fullImg(netconn* conn, netbuf* nbuf) {
-  uint32_t* frame_cursor = matrix->get_frame();
-
-  char* data;
-  uint16_t len;
-  netbuf_data(nbuf, (void**)&data, &len);
-  do {
-    // Skip characters until past carriage return reached (end of command, start of data)
-    ++data;
-    --len;
-  } while(*data != '\r');
-  memcpy(frame_cursor, data, len);
-  frame_cursor += len / 4;
-
-  uint32_t total = 0;
-  err_t current_err;
-  netconn_write_str(conn, "Starting loop\n");
-  while (total < matrix->width * matrix->height * 4 && (current_err = netconn_recv(conn, &nbuf)) == ERR_OK) {
-    do {
-	  netbuf_data(nbuf, (void**)&data, &len);
-	  if (total + len > matrix->width * matrix->height * 4) {
-		netconn_write_str(conn, "Limit safeguard triggered");
-		len = matrix->width * matrix->height * 4 - total;
-	  }
-
-	  memcpy(frame_cursor, data, len);
-
-	  total += len;
-	  frame_cursor += len / 4;
-	  netconn_write_str(conn, "Wrote packet buffer part: " + std::to_string(total) + " bytes");
-    } while (netbuf_next(nbuf) >= 0);
-    netconn_write_str(conn, "Finished a full netbuf?");
-    netbuf_delete(nbuf);
-  }
-  netconn_write_str(conn, "Finished. " + std::to_string(total));
-  netconn_write_str(conn, "Error with next recv: " + std::to_string(current_err));
-  blink(4, 500);
-}
-
 void ControlServer::processCommand(std::string command, netconn* conn, netbuf* nbuf) {
 
-  if(command == "fullimg") {
+  if(command == "pictureframe") {
 	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
-	fullImg(conn, nbuf);
-  } else if(command == "overlayimg") {
-	netconn_write_str(conn, "Drawing overlay image");
-
+	netconn_write_str(conn, "Starting picture frame app");
+    const void* params[] = { matrix, &app };
+    xTaskCreate(PictureFrame::run_task, "PictureFrameAppThread", 4096, params, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
+  } else if (command == "draw") {
+	if (strcmp(pcTaskGetName(currentAppHandle), "PictureFrameApp") == 0) {
+	  PictureFrame* app = static_cast<PictureFrame*>(this->app);
+	  app->set_picture(conn, nbuf);
+	} else {
+	  netconn_write_str(conn, "Picture frame app not running");
+	}
   } else if(command == "clock") {
 	netconn_write_str(conn, "Starting clock app");
 	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
 	xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
   } else if(command == "getclocktime") {
-
+	if (strcmp(pcTaskGetName(currentAppHandle), "ClockAppThread") == 0) {
+	  Clock* app = static_cast<Clock*>(this->app);
+	  netconn_write_str(conn, "Insert time here");
+	}
   } else if(command == "animate") {
 	netconn_write_str(conn, "Animating");
 	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
 	xTaskCreate(runAnimationTask, "AnimationAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
+  } else if(command == "getcurrentapp") {
+	netconn_write_str(conn, pcTaskGetName(currentAppHandle));
   }
 }
 

@@ -3,6 +3,7 @@ import socket
 from PIL import Image
 import os
 import urllib.request
+import time
 
 def image_or_url_to_path(path):
     if os.path.isfile(path):
@@ -128,7 +129,8 @@ def write_rgb888_to_network(rgb888_array, width, height, output_ip, output_port,
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.connect((output_ip, output_port))
 
-        sock.sendall(b'fullimg\r')
+        sock.sendall(b'draw\r')
+        time.sleep(1)
 
         total = 0
         for item in rgb888_array:
@@ -137,15 +139,17 @@ def write_rgb888_to_network(rgb888_array, width, height, output_ip, output_port,
                 gamma_corrected_pixel = (int(255 * (((item >> 16) & 0xFF) / 255) ** gamma) << 16) | \
                         (int(255 * (((item >> 8) & 0xFF) / 255) ** gamma) << 8)  | \
                         int(255 * ((item & 0xFF) / 255) ** gamma)
+            data = gamma_corrected_pixel.to_bytes(4, 'little')
+            total += len(data)
+            sock.sendall(data)
 
-            sock.sendall(gamma_corrected_pixel.to_bytes(4, 'little'))
-
-        print("Sent full image")
+        print("Sent full image", total)
 
         sock.settimeout(1)
         while True:
             try:
                 incoming_data = sock.recv(1024)
+                print(incoming_data)
                 if not incoming_data or ("Finished." in incoming_data.decode('utf-8', errors='ignore')):
                     break
                 print(f"Received: {incoming_data.decode('utf-8', errors='ignore')}")
@@ -192,6 +196,6 @@ def main():
     elif sys.argv[1] == "draw":
         img_path = image_or_url_to_path(sys.argv[2])
 
-        write_rgb888_to_network(image_to_rgb888_array(Image.open(img_path)), 64, 64, "192.168.0.146", 2314)
+        write_rgb888_to_network(image_to_rgb888_array(Image.open(img_path)), 64, 64, "192.168.1.58", 2314)
 
 main()
