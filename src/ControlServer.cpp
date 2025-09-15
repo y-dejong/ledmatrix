@@ -4,39 +4,47 @@
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 #include <string>
+#include <algorithm>
+#include <tuple>
 
 #include "lwip/api.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 
+#include "util/Netconn.hpp"
 #include "util.hpp"
-#include "apps/clock/Clock.hpp"
-#include "apps/animation/Animation.hpp"
-#include "apps/pictureframe/PictureFrame.hpp"
+
+#include "Apps.hpp"
 
 // I don't like these two
 #define STRINGIFY(x) #x
 #define TOSTRING(x) STRINGIFY(x)
 
-static void netconn_write_str(netconn* conn, std::string str) {
-  netconn_write(conn, str.c_str(), str.length(), 0);
+static void run_task(void* params) {
+  std::tuple<AppFunction, const char *>* params_tuple = static_cast<std::tuple<AppFunction, const char *>*>(params);
+  AppFunction task = std::get<AppFunction>(*params_tuple);
+  // I currently don't do anything with the taskname
+  
+  TaskHandle_t handle = xTaskGetCurrentTaskHandle();
+  delete[] params_tuple;
+
+  task(handle);
+
+  vTaskDelete(NULL);
 }
 
-/*inline void netconn_write_str(netconn* conn, const char* str) {
-  netconn_write(conn, str, strnlen(str, 512), 0);
-}*/
-
-bool ControlServer::init(Hub75* matrix) {
+bool ControlServer::init() {
   cyw43_arch_enable_sta_mode();
 
 #if defined(WIFI_SSID) and defined(WIFI_PASSWORD)
-    if(cyw43_arch_wifi_connect_timeout_ms(TOSTRING(WIFI_SSID), TOSTRING(WIFI_PASSWORD), CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+  if(cyw43_arch_wifi_connect_timeout_ms(TOSTRING(WIFI_SSID), TOSTRING(WIFI_PASSWORD), CYW43_AUTH_WPA2_AES_PSK, 30000)) {
     return false;
   }
 
 #else
-#error "SSID or PASSWORD are not defined. Define it via environment variable and pass it to CMake."
+#error "WIFI_SSID or WIFI_PASSWORD are not defined. Define it via environment variable and pass it to CMake."
 #endif
   blink(3, 200);
 
@@ -50,12 +58,14 @@ bool ControlServer::init(Hub75* matrix) {
     return false;
   }
 
-  this->matrix = matrix;
+  this->control_server_handle = xTaskGetCurrentTaskHandle();
 
-  // Clock app by default
-  xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
+  //TODO start clock app by default
+
   return true;
 }
+
+
 
 void ControlServer::listen() {
 
@@ -71,69 +81,151 @@ void ControlServer::listen() {
     }
     blink(10, 100);
 
-    // Parse command from incoming data
-    std::string command;
-    netbuf* nbuf;
-    char* data;
-    uint16_t len;
-    while (netconn_recv(client_conn, &nbuf) == ERR_OK) {
-      do {
-		netbuf_data(nbuf, (void**)&data, &len);
-		command.append(data, len);
+	Netconn stream(client_conn);
+	stream.println("LED Matrix OS v1.0");
 
-		// If return carriage found, process the command
-		size_t endPos = command.find('\r');
-		if (endPos != std::string::npos) {
-		  command.resize(endPos);
-
-		  this->processCommand(command, client_conn, nbuf);
-		  command.clear();
-		  continue;
-		}
-      } while (netbuf_next(nbuf) >= 0);
-      netbuf_delete(nbuf);
-    }
-
-    netconn_close(client_conn);
-    netconn_delete(client_conn);
+	std::string command;
+	while(stream.connected()) {
+	  command = stream.getline(" \r"); // Gets 1 word
+	  this->process_command(command, stream);
+	}
   }
 }
 
-void ControlServer::processCommand(std::string command, netconn* conn, netbuf* nbuf) {
+void ControlServer::process_command(const std::string_view command, Netconn& conn) {
 
-  if(command == "pictureframe") {
-	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
-	netconn_write_str(conn, "Starting picture frame app");
-    const void* params[] = { matrix, &app };
-    xTaskCreate(PictureFrame::run_task, "PictureFrameAppThread", 4096, params, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
-  } else if (command == "draw") {
-	if (strcmp(pcTaskGetName(currentAppHandle), "PictureFrameApp") == 0) {
-	  PictureFrame* app = static_cast<PictureFrame*>(this->app);
-	  app->set_picture(conn, nbuf);
-	} else {
-	  netconn_write_str(conn, "Picture frame app not running");
+  // Split the command into words
+  /*std::vector<std::string_view> params;
+  for(size_t start = command.find_first_not_of(' '); start != std::string::npos; start = command.find_first_not_of(' ', start)) {
+	size_t end = command.find(' ', start);
+	params.push_back(std::string_view{command.data() + start, end - start});
+	start = end;
+  }*/
+
+  conn.println(command);
+  if (command == "start") {
+	this->start_app(conn.getline(" \r"), conn);
+
+  } else if (command == "forcequit") {
+	this->force_quit_app(conn.getline(" \r"), conn);
+  } else if (command == "msg") {
+	// TODO send to app
+	this->send_message(conn.getline(" \r"), conn);
+  } else if (command == "listapps") {
+	conn.println("Available apps:");
+	for (const auto& pair : APPS) {
+	  conn.println(pair.first);
 	}
-  } else if(command == "clock") {
-	netconn_write_str(conn, "Starting clock app");
-	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
-	xTaskCreate(Clock::runTask, "ClockAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
-  } else if(command == "getclocktime") {
-	if (strcmp(pcTaskGetName(currentAppHandle), "ClockAppThread") == 0) {
-	  Clock* app = static_cast<Clock*>(this->app);
-	  netconn_write_str(conn, "Insert time here");
+  } else if (command == "listrunning") {
+	conn.println("Running apps:");
+	for (const auto& pair : this->running_apps) {
+	  conn.println(pair.first);
 	}
-  } else if(command == "animate") {
-	netconn_write_str(conn, "Animating");
-	if (currentAppHandle != NULL) vTaskDelete(currentAppHandle);
-	xTaskCreate(runAnimationTask, "AnimationAppThread", 4096, matrix, tskIDLE_PRIORITY + 2UL, &currentAppHandle);
-  } else if(command == "getcurrentapp") {
-	netconn_write_str(conn, pcTaskGetName(currentAppHandle));
+  } else if (command == "ping") {
+	conn.println("pong");
+  } else {
+	conn.println("Unknown command: ");
+	conn.println(command);
+	conn.clear_buffer(); // Discard rest of packet
   }
 }
 
-ControlServer::ControlServer() {
+void ControlServer::start_app(std::string name, Netconn& conn) {
+  const auto pair = APPS.find(name);
+  if (pair == APPS.end()) {
+	conn.println(std::string("start: Could not find app: ") + name);
+	return;
+  }
+
+  // Generate unique task number
+  uint16_t tasknum = 0;
+  std::string taskname(pair->first + std::to_string(tasknum));
+  while (this->running_apps.find(taskname) != this->running_apps.end()) taskname = pair->first + std::to_string((++tasknum));
+
+  TaskHandle_t task_handle;
+
+  std::tuple<AppFunction, const char*>* params = new std::tuple<AppFunction, const char *>{pair->second, taskname.c_str()}; // Dynamically allocated to transfer to new task
+
+  this->running_apps[taskname] = AppInstance{nullptr, xQueueCreate(2, sizeof(Netconn*)), xQueueCreate(2, sizeof(Netconn*))};
+  xTaskCreate(run_task, taskname.c_str(), 4096, params, tskIDLE_PRIORITY + 2UL, &this->running_apps[taskname].handle);
+  conn.println(std::string("Created task: ") + taskname);
+
+  // TODO allow sending args
 }
+
+void ControlServer::force_quit_app(std::string app, Netconn& conn) {
+  auto pair = this->running_apps.find(app);
+  if (pair == this->running_apps.end()) {
+	conn.println("send_message: Couldn't find app");
+	return;
+  }
+
+  vTaskDelete(pair->second.handle);
+}
+
+void ControlServer::send_message(std::string app, Netconn& conn) {
+
+  auto pair = this->running_apps.find(app);
+  if (pair == this->running_apps.end()) {
+	conn.println("send_message: Couldn't find app");
+	return;
+  }
+
+  auto& app_instance = pair->second;
+
+  Netconn* item = &conn;
+
+  conn.println("send_message: Going to send conn");
+  if (xQueueSend(app_instance.conn_ready_queue, &item, 10000) != pdPASS) {
+	conn.println("send_message: Failed to add conn to conn_ready_queue");
+	return;
+  }
+
+  Netconn* queue_conn = nullptr;
+
+  while(queue_conn != &conn) {
+	if (xQueuePeek(app_instance.conn_finished_queue, &queue_conn, 10000) == errQUEUE_EMPTY) vTaskDelay(100);
+  }
+  xQueueReceive(app_instance.conn_finished_queue, nullptr, 1); // Wait 1 because it should be ready
+}
+
+// Meant to be called by App
+Netconn* ControlServer::receive_conn(std::string_view taskname, bool block) {
+
+  auto pair = this->running_apps.find(std::string(taskname));
+  if (pair == this->running_apps.end()) return nullptr;
+
+
+  Netconn* conn = nullptr;
+  if (block) {
+    while (xQueueReceive(pair->second.conn_ready_queue, &conn, portMAX_DELAY) != pdPASS);
+  } else {
+	xQueueReceive(pair->second.conn_ready_queue, &conn, 0);
+  }
+  return conn;
+}
+
+// Meant to be called by app
+void ControlServer::give_conn(std::string_view taskname, Netconn* conn) {
+  auto pair = this->running_apps.find(std::string(taskname));
+  if (pair == this->running_apps.end()) {
+	conn->println("give_conn: Couldn't find app");
+    return;
+  }
+
+  if(xQueueSend(pair->second.conn_finished_queue, &conn, portMAX_DELAY) != pdPASS) {
+	conn->println("Failed to give back semaphore");
+  }
+}
+
+
 
 ControlServer::~ControlServer() {
   netconn_delete(this->conn);
 }
+
+ControlServer& ControlServer::instance() {
+  static ControlServer instance;
+  return instance;
+}
+

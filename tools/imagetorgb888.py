@@ -196,6 +196,6 @@ def main():
     elif sys.argv[1] == "draw":
         img_path = image_or_url_to_path(sys.argv[2])
 
-        write_rgb888_to_network(image_to_rgb888_array(Image.open(img_path)), 64, 64, "192.168.1.58", 2314)
+        write_rgb888_to_network(image_to_rgb888_array(Image.open(img_path)), 20, 20, "192.168.1.30", 2314)
 
 main()

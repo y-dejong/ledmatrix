@@ -22,10 +22,8 @@ public:
 
   Clock(Hub75& matrix);
 
-  static void runTask(void* state) {
-
-	Hub75& m = *(Hub75*)state;
-	Clock clockapp(m);
+  static void runTask(TaskHandle_t task) {
+	Clock clockapp(Hub75::instance());
 	clockapp.run();
   }
 };

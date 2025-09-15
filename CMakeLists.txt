@@ -28,11 +28,9 @@ add_executable(${PROJECT_NAME})
 
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/hub75.pio)
 
-file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c" "src/apps/clock/*.cpp")
+file(GLOB_RECURSE SOURCES "src/*.cpp" "src/*.c")
 target_sources(${PROJECT_NAME} PRIVATE ${SOURCES})
 target_include_directories(${PROJECT_NAME} PRIVATE "src/")
-target_include_directories(${PROJECT_NAME} PRIVATE "src/apps/clock/")
-
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
 	PICO_DEFAULT_UART_TX_PIN=28
