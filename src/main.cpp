@@ -26,7 +26,7 @@ void drawTask(void* context) {
 
   while(1) {
     matrix.render();
-    vTaskDelay(5);
+    vTaskDelay(10);
   }
 }
 

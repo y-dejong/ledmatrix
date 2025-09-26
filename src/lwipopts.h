@@ -19,7 +19,7 @@
 
 // Customized by me
 #define LWIP_TCPIP_CORE_LOCKING   1
-#define DEFAULT_ACCEPTMBOX_SIZE 4
+#define DEFAULT_ACCEPTMBOX_SIZE 8
 #define LWIP_NETCONN 1
-#define MEMP_NUM_NETBUF 4
+#define MEMP_NUM_NETBUF 8
 #endif

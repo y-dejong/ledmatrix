@@ -12,6 +12,7 @@ private:
   uint16_t offset; // Offset inside the current pbuf segment, i.e. nbuf->ptr
 
   void read_nbuf_into_string(std::string& str);
+  void print_err_state();
 
 public:
   Netconn() = default;

@@ -32,20 +32,6 @@ std::string Netconn::getline(std::string_view delim) {
 
   if (this->conn == nullptr) return std::string();
 
-  // If we are part way through a netbuf
-  /*if (this->offset != 0) {
-	netbuf_data(this->nbuf, (void**)&data, &len);
-	if ((cr_pos = std::string_view(static_cast<const char*>(data) + offset, len).find_first_of(delim)) != std::string::npos) {
-	  // If we found a \r in the rest of the current netbuf, just return that and adjust the offset
-	  buffer.append(data + offset, len - offset - cr_pos);
-	  this->offset = offset + cr_pos + 1; // Dear god I hope this is correct
-	  return buffer;
-	} else {
-	  buffer.append(data + offset, len - offset);
-	  offset = len;
-	}
-  }*/
-
   if (this->nbuf == nullptr) netconn_recv(this->conn, &this->nbuf); // First recv by this Netconn
 
   do {
@@ -87,13 +73,17 @@ void Netconn::read_into(void* dest, size_t len) {
 
   this->clear_buffer();
 
-  void* data = nullptr;
+  void* data = nullptr; // should I be using std::bytes for pointer arithmetic?
+  uint16_t offset = 0;
 
   while(len > 0 && (this->err_state = netconn_recv(this->conn, &this->nbuf)) == ERR_OK) {
-	len -= netbuf_copy(this->nbuf, dest, len);
+	uint16_t copied = netbuf_copy(this->nbuf, dest + offset, len);
+	len -= copied;
+	offset += copied;
   }
   if (this->err_state != ERR_OK) {
-	this->println("Error receiving netconn data");
+	this->print_err_state();
+	this->println("Netconn::read_into: Error receiving netconn data");
 	this->println(std::string("Remaining len: " + std::to_string(len)));
   }
   this->clear_buffer(); // Probably should try to remove this too
@@ -101,9 +91,35 @@ void Netconn::read_into(void* dest, size_t len) {
 
 void Netconn::println(std::string_view msg) {
   netconn_write(this->conn, msg.data(), msg.size(), 0);
-  netconn_write(this->conn, "\n", 1, 0);
+  //netconn_write(this->conn, "\n", 1, 0);
 }
 
 bool Netconn::connected() {
   return this->conn != nullptr;
+}
+
+
+void Netconn::print_err_state() {
+  switch(this->err_state) {
+  case ERR_ARG:
+	this->println("ERR_ARG");
+	break;
+  case ERR_MEM:
+	this->println("ERR_MEM");
+	break;
+  case ERR_CONN:
+	this->println("ERR_CONN");
+	break;
+  case ERR_WOULDBLOCK:
+	this->println("ERR_WOULDBLOCK");
+	break;
+  case ERR_RST:
+	this->println("ERR_RST");
+	break;
+  case ERR_CLSD:
+	this->println("ERR_CLSD");
+	break;
+  case ERR_TIMEOUT:
+	this->println("ERR_TIMEOUT");
+  }
 }

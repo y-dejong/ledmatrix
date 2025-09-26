@@ -4,6 +4,8 @@ import time
 import sys
 import threading
 
+send_ready = False
+
 def crop_and_resize(image, target_size):
     original_aspect = image.size[0] / image.size[1]
     target_aspect = target_size[0] / target_size[1]
@@ -49,6 +51,9 @@ def socket_receiver(sock):
             data = sock.recv(4096)
             if not data:
                 break
+            if data.decode(errors="replace") == "Ready":
+                global send_ready
+                send_ready = True
             print("RECEIVED:", data.decode(errors="replace"))
     except Exception as e:
         print(f"Receiver stopped: {e}")
@@ -65,7 +70,9 @@ def send_image(img_path, coords, size, addr, port):
         sock.sendall(bytes(f"msg pictureframe0 add {coords[0]} {coords[1]} {size[0]} {size[1]}\r", "utf8"))
         img_arr = image_to_rgb888_array(Image.open(img_path), size)
 
-        time.sleep(10)
+        global send_ready
+        while not send_ready:
+            time.sleep(0.01)
         all_data = bytes()
 
         for item in img_arr:
@@ -78,9 +85,8 @@ def send_image(img_path, coords, size, addr, port):
         # print(all_data)
         # print(len(all_data))
         sock.sendall(all_data)
-        sock.send(b'\r')
 
-        print("sent")
+        print("sent", len(all_data))
 
         # Keep alive briefly so background thread can receive
         time.sleep(2)
