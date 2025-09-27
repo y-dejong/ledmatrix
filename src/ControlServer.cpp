@@ -79,7 +79,6 @@ void ControlServer::listen() {
       printf("Failed to accept connection\n");
       continue;
     }
-    blink(10, 100);
 
 	Netconn stream(client_conn);
 	stream.println("LED Matrix OS v1.0");
@@ -94,15 +93,6 @@ void ControlServer::listen() {
 
 void ControlServer::process_command(const std::string_view command, Netconn& conn) {
 
-  // Split the command into words
-  /*std::vector<std::string_view> params;
-  for(size_t start = command.find_first_not_of(' '); start != std::string::npos; start = command.find_first_not_of(' ', start)) {
-	size_t end = command.find(' ', start);
-	params.push_back(std::string_view{command.data() + start, end - start});
-	start = end;
-  }*/
-
-  conn.println(command);
   if (command == "start") {
 	this->start_app(conn.getline(" \r"), conn);
 
@@ -175,7 +165,6 @@ void ControlServer::send_message(std::string app, Netconn& conn) {
 
   Netconn* item = &conn;
 
-  conn.println("send_message: Going to send conn");
   if (xQueueSend(app_instance.conn_ready_queue, &item, 10000) != pdPASS) {
 	conn.println("send_message: Failed to add conn to conn_ready_queue");
 	return;

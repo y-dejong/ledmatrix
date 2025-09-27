@@ -90,8 +90,8 @@ void Netconn::read_into(void* dest, size_t len) {
 }
 
 void Netconn::println(std::string_view msg) {
-  netconn_write(this->conn, msg.data(), msg.size(), 0);
-  //netconn_write(this->conn, "\n", 1, 0);
+  netconn_write(this->conn, msg.data(), msg.size(), NETCONN_MORE);
+  netconn_write(this->conn, "\n", 1, 0);
 }
 
 bool Netconn::connected() {
