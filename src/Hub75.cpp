@@ -84,7 +84,7 @@ void Hub75::update() { // TODO add transparent pixel support
 	uint hmax = std::min(window.height + window.y, this->height);
 
 	for(const auto& pixel : window.buffer) {
-	  this->master_buffer[y * this->width + x] = pixel;
+	  this->master_buffer[y * this->width + x] = this->gamma_correct_555_888(pixel) * (pixel >> 15 & 1);
 	  ++x;
 	  if (x >= wmax) {
 		x = window.x;
@@ -133,6 +133,16 @@ uint32_t Hub75::gamma_correct_565_888(uint16_t pixel) {
 
   // Pack the 8-bit RGB values into a 24-bit RGB888 format
   return (r8 << 16) | (g8 << 8) | (b8);
+}
+
+inline uint32_t Hub75::gamma_correct_555_888(uint16_t pixel) {
+  uint32_t result = 0;
+  for(uint i = 0; i < 3; ++i) {
+	uint8_t val = (pixel >> 8 * i);
+	val = (val << 3 | val >> 2);
+	result |= val << 5 * i;
+  }
+  return result;
 }
 
 uint32_t Hub75::gamma_correct_888(uint32_t pixel, const float gamma) {

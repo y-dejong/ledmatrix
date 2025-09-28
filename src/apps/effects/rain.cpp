@@ -55,7 +55,7 @@ void rain_task(TaskHandle_t task) {
     // Clear screen
     for (unsigned y = 0; y < HEIGHT; y++) {
       for (unsigned x = 0; x < WIDTH; x++) {
-        matrix.set_pixel(x, y, 0x000000);
+        matrix.set_pixel888(x, y, 0x000000);
       }
     }
 
@@ -77,7 +77,7 @@ void rain_task(TaskHandle_t task) {
 
       // Draw head
       if (d.y >= 0 && d.y < static_cast<int>(HEIGHT)) {
-        matrix.set_pixel(d.x, d.y, COLOR_HEAD);
+        matrix.set_pixel888(d.x, d.y, COLOR_HEAD);
       }
 
       // Draw tail (fading upwards)
@@ -86,7 +86,7 @@ void rain_task(TaskHandle_t task) {
         if (ty >= 0 && ty < static_cast<int>(HEIGHT)) {
           float fade = 1.0f - (static_cast<float>(t) / (TAIL_LENGTH + 1));
           uint32_t tail_color = fade_color(COLOR_TAIL, fade);
-          matrix.set_pixel(d.x, ty, tail_color);
+          matrix.set_pixel888(d.x, ty, tail_color);
         }
       }
     }

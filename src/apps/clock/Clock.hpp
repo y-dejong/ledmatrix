@@ -14,9 +14,9 @@ private:
   std::time_t current_time;
 
   void initDateTime();
-  void drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t color, const uint32_t bgcolor);
-  void drawAlphanumeric4x6(const char c, uint x, uint y, const uint32_t color, const uint32_t bgcolor);
-  void drawDateTime();
+  void drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t color);
+  void drawAlphanumeric4x6(const char c, uint x, uint y, const uint32_t color);
+  void drawDateTime(Window& window);
 public:
   void run();
 

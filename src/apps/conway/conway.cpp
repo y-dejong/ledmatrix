@@ -2,6 +2,7 @@
 #include "Hub75.hpp"
 #include "ControlServer.hpp"
 #include "util/Netconn.hpp"
+#include "util.hpp"
 
 #include <vector>
 #include <utility>
@@ -68,7 +69,7 @@ void conway_task(TaskHandle_t task) {
   state->resize(width * height / 8); // Make sure its the right size even though the provided sample isn't
 
   uint delay = 100; // Delay in milliseconds
-  uint8_t fade_rate = 0x50;
+  uint8_t fade_rate = 0x04;
 
   bool paused = false;
   // Main loop
@@ -83,7 +84,7 @@ void conway_task(TaskHandle_t task) {
 		break;
 	  } else if (cmd == "delay") {
 		delay = std::stoi(conn.getline());
-		
+
 	  } else if (cmd == "pause") {
 		paused = true;
 	  } else if (cmd == "resume") {
@@ -101,13 +102,14 @@ void conway_task(TaskHandle_t task) {
 	step(*state, *next_state, width, height);
 	std::swap(state, next_state);
 
+	// Draw
 	for(uint i = 0; i < width * height; ++i) {
 	  if ((*state)[i/8] >> (i%8) & 1) {
-		window.buffer[i] = 0xffffff;
+		window.buffer[i] = to_rgba5551(0x1ffffff);
 	  } else {
-		window.buffer[i] &= 0xff0000;
-		window.buffer[i] = std::min(window.buffer[i], (uint32_t)0x880000);
-		window.buffer[i] -= std::min(window.buffer[i], (uint32_t)fade_rate << 16);
+		window.buffer[i] &= to_rgba5551(0x1ff0000);
+		window.buffer[i] = std::min(window.buffer[i], to_rgba5551(0x880000));
+		window.buffer[i] -= std::min(window.buffer[i], (uint16_t)(fade_rate << 10));
 	  }
 	}
 	matrix.request_update();

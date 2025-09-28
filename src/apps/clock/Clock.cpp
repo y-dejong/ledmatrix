@@ -41,6 +41,13 @@ constexpr static const char* monthAbbrevs[] = {
   "dec"
 };
 
+const uint32_t color_gradient[] = {0xbf6c1f, 0xba6c22, 0xb56c26, 0xb16c29, 0xac6c2d, 0xa86c30, 0xa36c34, 0x9f6d37, 0x9a6d3b,
+0x966d3e, 0x916d42, 0x8d6d45, 0x886d49, 0x846e4c, 0x7f6e50, 0x7b6e53, 0x766e57, 0x726e5a, 0x6d6e5e, 0x696f61, 0x646f65,
+0x606f68, 0x5b6f6c, 0x576f6f, 0x526f73, 0x4e7076, 0x49707a, 0x45707d, 0x407081, 0x3c7084, 0x377088, 0x33718c,
+0x31718d, 0x2f718e, 0x2e718f, 0x2c7191, 0x2b7192, 0x297193, 0x277194, 0x267196, 0x247197, 0x237198, 0x21719a,
+0x1f719b, 0x1e719c, 0x1c719d, 0x1b719f, 0x1972a0, 0x1772a1, 0x1672a3, 0x1472a4, 0x1372a5, 0x1172a6, 0x0f72a8,
+0x0e72a9, 0x0c72aa, 0x0b72ac, 0x0972ad, 0x0772ae, 0x0672af, 0x0472b1, 0x0372b2, 0x0172b3, 0x0073b5};
+
 void Clock::initDateTime() {
 
   // New netconn for UDP
@@ -113,59 +120,67 @@ void Clock::initDateTime() {
   netconn_delete(conn);
 }
 
-void Clock::drawDateTime() {
+void Clock::drawDateTime(Window& window) {
   uint32_t color = 0xffffff;
 
   std::tm* timeinfo = std::gmtime(&current_time);
 
   int hour = timeinfo->tm_hour%12;
   hour = (hour == 0 ? 12 : hour);
-  color = 0x22a6f2;
-  drawLargeNumber5x7(hour/10, spriteDest[0][0], spriteDest[0][1], color, 0);
-  drawLargeNumber5x7(hour%10, spriteDest[1][0], spriteDest[1][1], color, 0);
+  color = to_rgba5551(0x122a6f2);
+  drawLargeNumber5x7(hour/10, spriteDest[0][0], spriteDest[0][1], color);
+  drawLargeNumber5x7(hour%10, spriteDest[1][0], spriteDest[1][1], color);
 
-  color = 0xbf6c1f;
-  drawLargeNumber5x7(timeinfo->tm_min/10, spriteDest[2][0], spriteDest[2][1], color, 0);
-  drawLargeNumber5x7(timeinfo->tm_min%10, spriteDest[3][0], spriteDest[3][1], color, 0);
+  color = to_rgba5551(0x1bf6c1f);
+  drawLargeNumber5x7(timeinfo->tm_min/10, spriteDest[2][0], spriteDest[2][1], color);
+  drawLargeNumber5x7(timeinfo->tm_min%10, spriteDest[3][0], spriteDest[3][1], color);
 
-  color = 0xbf6c1f;
-  drawAlphanumeric4x6((timeinfo->tm_hour / 12 ? 'p' : 'a'), spriteDest[7][0], spriteDest[7][1], color, 0);
-  drawAlphanumeric4x6('m', spriteDest[7][0] + 5, spriteDest[7][1], color, 0);
+  color = to_rgba5551(0x1bf6c1f);
+  drawAlphanumeric4x6((timeinfo->tm_hour / 12 ? 'p' : 'a'), spriteDest[7][0], spriteDest[7][1], color);
+  drawAlphanumeric4x6('m', spriteDest[7][0] + 5, spriteDest[7][1], color);
 
-  color = 0x22a6f2;
-  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][0], spriteDest[4][0], spriteDest[4][1], color, 0);
-  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][1], spriteDest[4][0] + 5, spriteDest[4][1], color, 0);
-  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][2], spriteDest[4][0] + 10, spriteDest[4][1], color, 0);
+  color = to_rgba5551(0x122a6f2);
+  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][0], spriteDest[4][0], spriteDest[4][1], color);
+  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][1], spriteDest[4][0] + 5, spriteDest[4][1], color);
+  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][2], spriteDest[4][0] + 10, spriteDest[4][1], color);
 
-  drawAlphanumeric4x6(timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color, 0);
-  drawAlphanumeric4x6(timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color, 0);
+  drawAlphanumeric4x6(timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color);
+  drawAlphanumeric4x6(timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color);
 }
 
-void Clock::drawLargeNumber5x7(const uint number, uint x, uint y, const uint32_t color, const uint32_t bgcolor) {
+void Clock::drawLargeNumber5x7(Window& window, const uint number, uint x, uint y, const uint32_t color) {
 
   const uint original_x = x;
   for (uint i = 0; i < 7; ++i) {
 	x = original_x;
 	for (uint j = 0; j < 5; ++j) {
 	  uint currentPixel = i * 5 + j;
-	  bool shouldPaint = numeric5x7_min[number][currentPixel / 8] >> currentPixel % 8 & 1;
-	  matrix.set_pixel(x, y, getColor(shouldPaint, y));
-	  matrix.set_pixel(x+1, y, getColor(shouldPaint, y));
-	  matrix.set_pixel(x+2, y, getColor(shouldPaint, y));
-	  matrix.set_pixel(x, y+1, getColor(shouldPaint, y));
-	  matrix.set_pixel(x+1, y+1, getColor(shouldPaint, y+1));
-	  matrix.set_pixel(x+2, y+1, getColor(shouldPaint, y+1));
-	  matrix.set_pixel(x, y+2, getColor(shouldPaint, y+2));
-	  matrix.set_pixel(x+1, y+2, getColor(shouldPaint, y+2));
-	  matrix.set_pixel(x+2, y+2, getColor(shouldPaint, y+2));
+	  uint8_t shouldPaint = numeric5x7_min[number][currentPixel / 8] >> currentPixel % 8 & 1;
+
+	  //Paint 3x3
+	  for(uint8_t u = y; u < 3; ++u) {
+		for (uint8_t v = 0; v < 3; ++v) {
+		  window.buffer[]
+		}
+	  }
+	  window.buffer[y * window.width + x] = 
+	  matrix.set_pixel888(x, y, color_gradient[y] & shouldPaint << 15);
+	  matrix.set_pixel888(x+1, y, color_gradient[y] & shouldPaint << 15);
+	  matrix.set_pixel888(x+2, y, color_gradient[y] & shouldPaint << 15);
+	  matrix.set_pixel888(x, y+1, color_gradient[y] & shouldPaint << 15);
+	  matrix.set_pixel888(x+1, y+1, color_gradient[y+1] & shouldPaint << 15);
+	  matrix.set_pixel888(x+2, y+1, color_gradient[y+1] & shouldPaint << 15);
+	  matrix.set_pixel888(x, y+2, color_gradient[y+2] & shouldPaint << 15);
+	  matrix.set_pixel888(x+1, y+2, color_gradient[y+2] & shouldPaint << 15);
+	  matrix.set_pixel888(x+2, y+2, color_gradient[y+2] & shouldPaint << 15);
 
 	  // Clear space between pixels
-	  matrix.set_pixel(x+3, y, bgcolor);
-	  matrix.set_pixel(x+3, y+1, bgcolor);
-	  matrix.set_pixel(x+3, y+2, bgcolor);
-	  matrix.set_pixel(x, y+3, bgcolor);
-	  matrix.set_pixel(x+1, y+3, bgcolor);
-	  matrix.set_pixel(x+2, y+3, bgcolor);
+	  matrix.set_pixel888(x+3, y, 0);
+	  matrix.set_pixel888(x+3, y+1, 0);
+	  matrix.set_pixel888(x+3, y+2, 0);
+	  matrix.set_pixel888(x, y+3, 0);
+	  matrix.set_pixel888(x+1, y+3, 0);
+	  matrix.set_pixel888(x+2, y+3, 0);
 	  x += 4;
 	}
 	y += 4;
@@ -185,8 +200,8 @@ void Clock::drawAlphanumeric4x6(const char c, uint x, uint y, const uint32_t col
   for (uint i = 0; i < 6; ++i) {
 	for (uint j = 0; j < 4; ++j) {
 	  uint currentPixel = i * 4 + j;
-	  bool shouldPaint = (alphanumeric4x6_min[fontIndex][currentPixel / 8] >> currentPixel % 8 & 1);
-	  matrix.set_pixel(x + j, y + i, getColor(shouldPaint, y + i));
+	  uint8_t shouldPaint = alphanumeric4x6_min[fontIndex][currentPixel / 8] >> currentPixel % 8 & 1;
+	  matrix.set_pixel888(x + j, y + i, color_gradient[y + i] & shouldPaint << 15);
 	}
   }
 }
@@ -197,15 +212,15 @@ void Clock::run() {
   initDateTime();
 
   // Set screen to black
-  for(uint i = 0; i < 64 * 64; ++i) {
-	matrix.set_pixel(i % 64, i / 64, 0x000000);
-  }
+  Hub75& matrix = Hub75::instance();
+  Window& window = matrix.create_window(0, 0, 64, 64);
+  this->window = window;
 
-  drawDateTime();
+  drawDateTime(window);
   bool needs_redraw;
   while (1) {
 	// Update current time, and redraw if new minute
-	if (++current_time % 60 == 0) drawDateTime();
+	if (++current_time % 60 == 0) drawDateTime(window);
 	vTaskDelay(1000); // Delay for 1 second
   }
 }

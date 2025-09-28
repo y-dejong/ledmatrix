@@ -71,7 +71,7 @@ static void render_fire() {
   Hub75& matrix = Hub75::instance();
     for (int y = 0; y < HEIGHT; y++) {
         for (int x = 0; x < WIDTH; x++) {
-          matrix.set_pixel(x, y, palette[fire[y][x]]);
+          matrix.set_pixel888(x, y, palette[fire[y][x]]);
         }
     }
 }

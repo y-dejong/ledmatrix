@@ -52,7 +52,7 @@ void PictureFrame::handle_message(Netconn& conn) {
 
 	// TODO populate window
 	conn.println("Ready");
-	conn.read_into(window.buffer.data(), window.buffer.size() * sizeof(uint32_t));
+	conn.read_into(window.buffer.data(), window.buffer.size() * sizeof(uint16_t));
 	conn.println("Finished, requesting update");
 
 	conn.println(std::string("Window size: ") + std::to_string(window.buffer.size()));

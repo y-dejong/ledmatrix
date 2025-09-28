@@ -12,7 +12,7 @@
 
 struct Window {
   uint x, y, width, height;
-  std::vector<uint32_t> buffer;
+  std::vector<uint16_t> buffer; // RGBA5551
 
   Window(uint x, uint y, uint width, uint height)
   : x(x), y(y), width(width), height(height), buffer() {
@@ -47,7 +47,7 @@ public:
 
   void render();
   void update();
-  void set_pixel(const uint x, const uint y, const uint32_t pixel);
+  void set_pixel888(const uint x, const uint y, const uint32_t pixel);
 
   Window& create_window(uint x, uint y, uint width, uint height);
   void remove_window(const Window& win);
@@ -55,6 +55,7 @@ public:
 
   uint32_t gamma_correct_565_888(uint16_t pixel);
   uint32_t gamma_correct_888(uint32_t pixel, float gamma);
+  uint32_t gamma_correct_555_888(uint16_t pixel);
   void gamma_correct_frame();
 
   static std::optional<Hub75> instance_;
@@ -62,7 +63,7 @@ public:
   static Hub75& instance(); // can this be const?
 };
 
-inline void Hub75::set_pixel(const uint x, const uint y, const uint32_t pixel) {
+inline void Hub75::set_pixel888(const uint x, const uint y, const uint32_t pixel) {
   if (y * this->width + x < width * height)
     this->master_buffer[y * this->width + x] = pixel;
 }
