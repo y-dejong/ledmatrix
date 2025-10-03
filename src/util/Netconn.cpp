@@ -80,13 +80,16 @@ void Netconn::read_into(void* dest, size_t len) {
 	uint16_t copied = netbuf_copy(this->nbuf, dest + offset, len);
 	len -= copied;
 	offset += copied;
+	if (len > 0) {
+	  this->clear_buffer();
+	  netbuf_delete(this->nbuf);
+	}
   }
   if (this->err_state != ERR_OK) {
 	this->print_err_state();
 	this->println("Netconn::read_into: Error receiving netconn data");
 	this->println(std::string("Remaining len: " + std::to_string(len)));
   }
-  this->clear_buffer(); // Probably should try to remove this too
 }
 
 void Netconn::println(std::string_view msg) {

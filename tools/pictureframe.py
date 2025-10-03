@@ -30,15 +30,15 @@ def crop_and_resize(image, target_size):
 
     return image.crop((left, top, right, bottom)).resize(target_size, Image.LANCZOS)
 
-def image_to_rgb888_array(img, size=(64,64)):
+def image_to_rgb555_array(img, size=(64,64)):
     try:
         img = img.convert('RGB')
         img = crop_and_resize(img, size)
 
         pixels = list(img.getdata())
 
-        # Create the RGB888 array
-        return [(pixel[2] << 16) | (pixel[1] << 8) | pixel[0] for pixel in pixels]
+        # Create the RGB555 array
+        return [((pixel[2] >> 3) << 10) | ((pixel[1] >> 3) << 5) | (pixel[0] >> 3) | (1 << 15) for pixel in pixels]
 
     except Exception as e:
         print(f"Error processing the image: {e}")
@@ -51,7 +51,7 @@ def socket_receiver(sock):
             data = sock.recv(4096)
             if not data:
                 break
-            if data.decode(errors="replace") == "Ready":
+            if data.decode(errors="replace").startswith("Ready"):
                 global send_ready
                 send_ready = True
             print("RECEIVED:", data.decode(errors="replace"))
@@ -65,10 +65,11 @@ def send_image(img_path, coords, size, addr, port):
         # Start async receiver thread
         threading.Thread(target=socket_receiver, args=(sock,), daemon=True).start()
 
-        time.sleep(5)
+        time.sleep(0.5)
 
         sock.sendall(bytes(f"msg pictureframe0 add {coords[0]} {coords[1]} {size[0]} {size[1]}\r", "utf8"))
-        img_arr = image_to_rgb888_array(Image.open(img_path), size)
+        # sock.sendall(bytes(f"msg pictureframe0 set 0\r", "utf8"))
+        img_arr = image_to_rgb555_array(Image.open(img_path), size)
 
         global send_ready
         while not send_ready:
@@ -76,11 +77,11 @@ def send_image(img_path, coords, size, addr, port):
         all_data = bytes()
 
         for item in img_arr:
-            gamma = 2.2
-            gamma_corrected_pixel = (int(255 * (((item >> 16) & 0xFF) / 255) ** gamma) << 16) | \
-                (int(255 * (((item >> 8) & 0xFF) / 255) ** gamma) << 8)  | \
-                int(255 * ((item & 0xFF) / 255) ** gamma)
-            all_data += gamma_corrected_pixel.to_bytes(4, 'little')
+            # gamma = 2.2
+            # gamma_corrected_pixel = (int(255 * (((item >> 16) & 0xFF) / 255) ** gamma) << 16) | \
+            #     (int(255 * (((item >> 8) & 0xFF) / 255) ** gamma) << 8)  | \
+            #     int(255 * ((item & 0xFF) / 255) ** gamma)
+            all_data += item.to_bytes(2, 'little')
 
         # print(all_data)
         # print(len(all_data))

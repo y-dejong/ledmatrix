@@ -81,7 +81,9 @@ void conway_task(TaskHandle_t task) {
 	  std::string cmd = conn.getline(" \r");
 
 	  if (cmd == "quit") {
-		break;
+		matrix.remove_window(window);
+		conn.println("Quitting conway");
+		return;
 	  } else if (cmd == "delay") {
 		delay = std::stoi(conn.getline());
 
@@ -116,13 +118,4 @@ void conway_task(TaskHandle_t task) {
 	vTaskDelay(pdMS_TO_TICKS(delay));
 
   }
-  /* LOOP {
-
-Simluation step, iterate through cell
-
-Update window
-
-Hub75::request_update()
-
- } */
 }

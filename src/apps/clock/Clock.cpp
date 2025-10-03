@@ -1,6 +1,7 @@
 #include "Clock.hpp"
 #include "font.hpp"
 
+#include "ControlServer.hpp"
 #include "Hub75.hpp"
 #include "util.hpp"
 
@@ -125,27 +126,33 @@ void Clock::drawDateTime(Window& window) {
 
   std::tm* timeinfo = std::gmtime(&current_time);
 
+  for(auto& pixel : window.buffer) {
+	pixel = 0;
+  }
+
   int hour = timeinfo->tm_hour%12;
   hour = (hour == 0 ? 12 : hour);
   color = to_rgba5551(0x122a6f2);
-  drawLargeNumber5x7(hour/10, spriteDest[0][0], spriteDest[0][1], color);
-  drawLargeNumber5x7(hour%10, spriteDest[1][0], spriteDest[1][1], color);
+  drawLargeNumber5x7(window, hour/10, spriteDest[0][0], spriteDest[0][1], color);
+  drawLargeNumber5x7(window, hour%10, spriteDest[1][0], spriteDest[1][1], color);
 
   color = to_rgba5551(0x1bf6c1f);
-  drawLargeNumber5x7(timeinfo->tm_min/10, spriteDest[2][0], spriteDest[2][1], color);
-  drawLargeNumber5x7(timeinfo->tm_min%10, spriteDest[3][0], spriteDest[3][1], color);
+  drawLargeNumber5x7(window, timeinfo->tm_min/10, spriteDest[2][0], spriteDest[2][1], color);
+  drawLargeNumber5x7(window, timeinfo->tm_min%10, spriteDest[3][0], spriteDest[3][1], color);
 
   color = to_rgba5551(0x1bf6c1f);
-  drawAlphanumeric4x6((timeinfo->tm_hour / 12 ? 'p' : 'a'), spriteDest[7][0], spriteDest[7][1], color);
-  drawAlphanumeric4x6('m', spriteDest[7][0] + 5, spriteDest[7][1], color);
+  drawAlphanumeric4x6(window, (timeinfo->tm_hour / 12 ? 'p' : 'a'), spriteDest[7][0], spriteDest[7][1], color);
+  drawAlphanumeric4x6(window, 'm', spriteDest[7][0] + 5, spriteDest[7][1], color);
 
   color = to_rgba5551(0x122a6f2);
-  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][0], spriteDest[4][0], spriteDest[4][1], color);
-  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][1], spriteDest[4][0] + 5, spriteDest[4][1], color);
-  drawAlphanumeric4x6(monthAbbrevs[timeinfo->tm_mon][2], spriteDest[4][0] + 10, spriteDest[4][1], color);
+  drawAlphanumeric4x6(window, monthAbbrevs[timeinfo->tm_mon][0], spriteDest[4][0], spriteDest[4][1], color);
+  drawAlphanumeric4x6(window, monthAbbrevs[timeinfo->tm_mon][1], spriteDest[4][0] + 5, spriteDest[4][1], color);
+  drawAlphanumeric4x6(window, monthAbbrevs[timeinfo->tm_mon][2], spriteDest[4][0] + 10, spriteDest[4][1], color);
 
-  drawAlphanumeric4x6(timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color);
-  drawAlphanumeric4x6(timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color);
+  drawAlphanumeric4x6(window, timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color);
+  drawAlphanumeric4x6(window, timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color);
+
+  Hub75::instance().request_update();
 }
 
 void Clock::drawLargeNumber5x7(Window& window, const uint number, uint x, uint y, const uint32_t color) {
@@ -158,36 +165,18 @@ void Clock::drawLargeNumber5x7(Window& window, const uint number, uint x, uint y
 	  uint8_t shouldPaint = numeric5x7_min[number][currentPixel / 8] >> currentPixel % 8 & 1;
 
 	  //Paint 3x3
-	  for(uint8_t u = y; u < 3; ++u) {
-		for (uint8_t v = 0; v < 3; ++v) {
-		  window.buffer[]
+	  for(uint u = y; u < y+3; ++u) {
+		for (uint v = x; v < x+3; ++v) {
+		  window.buffer[u * window.width + v] = to_rgba5551(color_gradient[u]) | (shouldPaint << 15);
 		}
 	  }
-	  window.buffer[y * window.width + x] = 
-	  matrix.set_pixel888(x, y, color_gradient[y] & shouldPaint << 15);
-	  matrix.set_pixel888(x+1, y, color_gradient[y] & shouldPaint << 15);
-	  matrix.set_pixel888(x+2, y, color_gradient[y] & shouldPaint << 15);
-	  matrix.set_pixel888(x, y+1, color_gradient[y] & shouldPaint << 15);
-	  matrix.set_pixel888(x+1, y+1, color_gradient[y+1] & shouldPaint << 15);
-	  matrix.set_pixel888(x+2, y+1, color_gradient[y+1] & shouldPaint << 15);
-	  matrix.set_pixel888(x, y+2, color_gradient[y+2] & shouldPaint << 15);
-	  matrix.set_pixel888(x+1, y+2, color_gradient[y+2] & shouldPaint << 15);
-	  matrix.set_pixel888(x+2, y+2, color_gradient[y+2] & shouldPaint << 15);
-
-	  // Clear space between pixels
-	  matrix.set_pixel888(x+3, y, 0);
-	  matrix.set_pixel888(x+3, y+1, 0);
-	  matrix.set_pixel888(x+3, y+2, 0);
-	  matrix.set_pixel888(x, y+3, 0);
-	  matrix.set_pixel888(x+1, y+3, 0);
-	  matrix.set_pixel888(x+2, y+3, 0);
-	  x += 4;
+	  x += 4; // Gap between dots
 	}
-	y += 4;
+	y += 4; // Gap between dots
   }
 }
 
-void Clock::drawAlphanumeric4x6(const char c, uint x, uint y, const uint32_t color, const uint32_t bgcolor) {
+void Clock::drawAlphanumeric4x6(Window& window, const char c, uint x, uint y, const uint32_t color) {
 
   // Get index in the font array from the char
   uint fontIndex;
@@ -201,8 +190,18 @@ void Clock::drawAlphanumeric4x6(const char c, uint x, uint y, const uint32_t col
 	for (uint j = 0; j < 4; ++j) {
 	  uint currentPixel = i * 4 + j;
 	  uint8_t shouldPaint = alphanumeric4x6_min[fontIndex][currentPixel / 8] >> currentPixel % 8 & 1;
-	  matrix.set_pixel888(x + j, y + i, color_gradient[y + i] & shouldPaint << 15);
+	  window.buffer[(y + i) * window.width + x + j] = to_rgba5551(color_gradient[y + i]) | shouldPaint << 15;
 	}
+  }
+}
+
+void Clock::handle_message(Netconn& conn) {
+  std::string cmd = conn.getline(" \r");
+  if (cmd == "quit") {
+	conn.println("Quitting clock");
+	this->quit == true;
+  } else if (cmd == "setgradient") {
+	// TODO
   }
 }
 
@@ -214,17 +213,17 @@ void Clock::run() {
   // Set screen to black
   Hub75& matrix = Hub75::instance();
   Window& window = matrix.create_window(0, 0, 64, 64);
-  this->window = window;
 
   drawDateTime(window);
-  bool needs_redraw;
-  while (1) {
+  while (!this->quit) {
+	Netconn* conn_ptr = ControlServer::instance().receive_conn(pcTaskGetTaskName(nullptr), false);
+	if (conn_ptr != nullptr) {
+	  this->handle_message(*conn_ptr);
+	  ControlServer::instance().give_conn(pcTaskGetTaskName(nullptr), conn_ptr);
+	}
 	// Update current time, and redraw if new minute
 	if (++current_time % 60 == 0) drawDateTime(window);
 	vTaskDelay(1000); // Delay for 1 second
   }
-}
-
-Clock::Clock(Hub75& matrix) : matrix(matrix) {
-  
+  matrix.remove_window(window);
 }

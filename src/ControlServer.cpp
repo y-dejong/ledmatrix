@@ -137,8 +137,13 @@ void ControlServer::start_app(std::string name, Netconn& conn) {
   std::tuple<AppFunction, const char*>* params = new std::tuple<AppFunction, const char *>{pair->second, taskname.c_str()}; // Dynamically allocated to transfer to new task
 
   this->running_apps[taskname] = AppInstance{nullptr, xQueueCreate(2, sizeof(Netconn*)), xQueueCreate(2, sizeof(Netconn*))};
-  xTaskCreate(run_task, taskname.c_str(), 4096, params, tskIDLE_PRIORITY + 2UL, &this->running_apps[taskname].handle);
-  conn.println(std::string("Created task: ") + taskname);
+  BaseType_t result = xTaskCreate(run_task, taskname.c_str(), 4096, params, tskIDLE_PRIORITY + 2UL, &this->running_apps[taskname].handle);
+  if (result == pdPASS) {
+	conn.println(std::string("Created task: ") + taskname);
+  } else {
+	conn.println("Unable to create task");
+	this->running_apps.erase(taskname);
+  }
 
   // TODO allow sending args
 }
@@ -151,6 +156,7 @@ void ControlServer::force_quit_app(std::string app, Netconn& conn) {
   }
 
   vTaskDelete(pair->second.handle);
+  this->running_apps.erase(pair);
 }
 
 void ControlServer::send_message(std::string app, Netconn& conn) {

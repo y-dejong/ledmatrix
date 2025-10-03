@@ -22,4 +22,5 @@
 #define DEFAULT_ACCEPTMBOX_SIZE 8
 #define LWIP_NETCONN 1
 #define MEMP_NUM_NETBUF 8
+#define MEM_SIZE 16000
 #endif

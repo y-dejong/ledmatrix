@@ -26,18 +26,18 @@ void drawTask(void* context) {
 
   while(1) {
     matrix.render();
-    vTaskDelay(10);
+    vTaskDelay(1);
   }
 }
 
 int main() {
   stdio_init_all();
 
-  Hub75::initialize(64, 32, 2, 64, 64);
+  Hub75::initialize(64, 32, 3, 96, 64);
 
   TaskHandle_t controlServerHandle, drawHandle;
   xTaskCreate(controlServerTask, "ControlServerThread", 4096, nullptr, tskIDLE_PRIORITY + 5UL, &controlServerHandle);
-  xTaskCreate(drawTask, "DrawThread", configMINIMAL_STACK_SIZE, nullptr, tskIDLE_PRIORITY + 1UL, &drawHandle);
+  xTaskCreate(drawTask, "DrawThread", configMINIMAL_STACK_SIZE, nullptr, tskIDLE_PRIORITY + 4UL, &drawHandle);
 
   vTaskStartScheduler();
 

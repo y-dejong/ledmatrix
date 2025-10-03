@@ -28,12 +28,13 @@ void PictureFrame::run_task(TaskHandle_t handle) {
 }
 
 void PictureFrame::handle_message(Netconn& conn) {
+  Hub75& matrix = Hub75::instance();
 
   std::string cmd = conn.getline(" \r");
 
   if (cmd == "quit") {
-	// TODO quit
-	conn.println("Should quit");
+	conn.println("Quitting picture frame");
+	for (const auto& win : this->windows) Hub75::instance().remove_window(win);
   } else if (cmd == "add") {
 
 	// Create new Hub75 window with raw data
@@ -46,21 +47,43 @@ void PictureFrame::handle_message(Netconn& conn) {
 	  dimensions[i] = std::stoi(tmpint);
 	}
 
-	Window& window = Hub75::instance().create_window(dimensions[0], dimensions[1], dimensions[2], dimensions[3]);
+	Window& window = matrix.create_window(dimensions[0], dimensions[1], dimensions[2], dimensions[3]);
 
 	this->windows.push_back(window);
 
 	// TODO populate window
-	conn.println("Ready");
+	conn.println(std::string("Ready: ") + std::to_string(this->windows.size() - 1));
 	conn.read_into(window.buffer.data(), window.buffer.size() * sizeof(uint16_t));
 	conn.println("Finished, requesting update");
 
 	conn.println(std::string("Window size: ") + std::to_string(window.buffer.size()));
-	Hub75::instance().request_update();
+	matrix.request_update();
+  } else if (cmd == "setdata") {
+	size_t index = std::stoi(conn.getline(" \r"));
+	if (index >= this->windows.size()) {
+	  conn.println("Window not found");
+	  return;
+	}
+	Window& window = this->windows[index];
+	conn.println("Ready");
+	conn.read_into(window.buffer.data(), window.buffer.size() * sizeof(uint16_t));
+	conn.println("Finished, requesting update");
+	matrix.request_update();
+  } else if (cmd == "move") {
+	size_t index = std::stoi(conn.getline(" \r"));
+	if (index >= this->windows.size()) {
+	  conn.println("Window not found");
+	  return;
+	}
+
+	Window& window = this->windows[index];
+	window.x = std::stoi(conn.getline(" \r"));
+	window.y = std::stoi(conn.getline(" \r"));
   } else if (cmd == "remove") {
 	size_t index = std::stoi(conn.getline());
 	Hub75::instance().remove_window(this->windows[index]);
 	conn.println("Removed window");
+	matrix.request_update();
   }
 }
 
