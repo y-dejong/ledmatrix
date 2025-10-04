@@ -1,4 +1,5 @@
 #include "Hub75.hpp"
+#include "Window.hpp"
 
 #include <pico/stdlib.h>
 #include "hardware/pio.h"
@@ -78,7 +79,13 @@ void Hub75::render() {
 
 void Hub75::update() {
   this->needs_update = false;
-  for (const auto& window : this->app_windows) {
+  for (auto it = Window::all_windows.begin(); it != Window::all_windows.end(); ++it) {
+	if (it->expired()) {
+	  Window::all_windows.erase(it); // Remove no longer existing windows
+	  continue;
+	}
+	std::shared_ptr<Window::Impl> window_ptr = it->lock();
+	Window::Impl& window = *window_ptr;
 	uint x = window.x, y = window.y;
 	uint wmax = std::min(window.width + window.x, this->width);
 	uint hmax = std::min(window.height + window.y, this->height);
@@ -97,19 +104,12 @@ void Hub75::update() {
   }
 }
 
-Window& Hub75::create_window(uint x, uint y, uint width, uint height) {
+/*Window& Hub75::create_window(uint x, uint y, uint width, uint height) {
   xSemaphoreTake(this->app_windows_mutex, portMAX_DELAY);
   this->app_windows.emplace_back(x, y, width, height);
   xSemaphoreGive(this->app_windows_mutex);
   return this->app_windows.back();
-}
-
-void Hub75::remove_window(const Window& win) {
-  xSemaphoreTake(this->app_windows_mutex, portMAX_DELAY);
-  // Funky pointer arithmetic, takes the difference in addresses to get the index
-  this->app_windows.erase(this->app_windows.begin() + (&win - &this->app_windows[0]));
-  xSemaphoreGive(this->app_windows_mutex);
-}
+}*/
 
 void Hub75::request_update() {
   this->needs_update = true;

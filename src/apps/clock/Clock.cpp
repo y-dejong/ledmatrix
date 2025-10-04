@@ -2,7 +2,7 @@
 #include "font.hpp"
 
 #include "ControlServer.hpp"
-#include "Hub75.hpp"
+#include "Window.hpp"
 #include "util.hpp"
 
 #include "FreeRTOS.h"
@@ -126,7 +126,7 @@ void Clock::drawDateTime(Window& window) {
 
   std::tm* timeinfo = std::gmtime(&current_time);
 
-  for(auto& pixel : window.buffer) {
+  for(auto& pixel : window.buffer()) {
 	pixel = 0;
   }
 
@@ -152,7 +152,7 @@ void Clock::drawDateTime(Window& window) {
   drawAlphanumeric4x6(window, timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color);
   drawAlphanumeric4x6(window, timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color);
 
-  Hub75::instance().request_update();
+  window.paint();
 }
 
 void Clock::drawLargeNumber5x7(Window& window, const uint number, uint x, uint y, const uint32_t color) {
@@ -167,7 +167,7 @@ void Clock::drawLargeNumber5x7(Window& window, const uint number, uint x, uint y
 	  //Paint 3x3
 	  for(uint u = y; u < y+3; ++u) {
 		for (uint v = x; v < x+3; ++v) {
-		  window.buffer[u * window.width + v] = to_rgba5551(color_gradient[u]) | (shouldPaint << 15);
+		  window.dot(v, u, to_rgba5551(color_gradient[u]) | (shouldPaint << 15));
 		}
 	  }
 	  x += 4; // Gap between dots
@@ -190,7 +190,7 @@ void Clock::drawAlphanumeric4x6(Window& window, const char c, uint x, uint y, co
 	for (uint j = 0; j < 4; ++j) {
 	  uint currentPixel = i * 4 + j;
 	  uint8_t shouldPaint = alphanumeric4x6_min[fontIndex][currentPixel / 8] >> currentPixel % 8 & 1;
-	  window.buffer[(y + i) * window.width + x + j] = to_rgba5551(color_gradient[y + i]) | shouldPaint << 15;
+	  window.dot(x + j, y + i, to_rgba5551(color_gradient[y + i]) | shouldPaint << 15);
 	}
   }
 }
@@ -210,9 +210,7 @@ void Clock::run() {
   // Retrieve current time over internet
   initDateTime();
 
-  // Set screen to black
-  Hub75& matrix = Hub75::instance();
-  Window& window = matrix.create_window(0, 0, 64, 64);
+  Window window(0, 0, 64, 64);
 
   drawDateTime(window);
   while (!this->quit) {
@@ -225,5 +223,4 @@ void Clock::run() {
 	if (++current_time % 60 == 0) drawDateTime(window);
 	vTaskDelay(1000); // Delay for 1 second
   }
-  matrix.remove_window(window);
 }

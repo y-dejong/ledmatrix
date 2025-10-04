@@ -10,16 +10,6 @@
 #include <memory>
 #include <optional>
 
-struct Window {
-  uint x, y, width, height;
-  std::vector<uint16_t> buffer; // RGBA5551
-
-  Window(uint x, uint y, uint width, uint height)
-  : x(x), y(y), width(width), height(height), buffer() {
-	buffer.resize(width*height);
-  }
-};
-
 class Hub75 {
 private:
   uint panel_width;
@@ -27,7 +17,6 @@ private:
   uint panel_count;
 
   std::vector<uint32_t> master_buffer;
-  std::vector<Window> app_windows;
   SemaphoreHandle_t app_windows_mutex;
   bool needs_update;
 
@@ -49,8 +38,6 @@ public:
   void update();
   void set_pixel888(const uint x, const uint y, const uint32_t pixel);
 
-  Window& create_window(uint x, uint y, uint width, uint height);
-  void remove_window(const Window& win);
   void request_update();
 
   uint32_t gamma_correct_565_888(uint16_t pixel);

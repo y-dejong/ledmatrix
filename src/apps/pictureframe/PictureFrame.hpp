@@ -7,13 +7,13 @@
 
 #include <vector>
 
-#include "Hub75.hpp"
+#include "Window.hpp"
 #include "util/Netconn.hpp"
 
 class PictureFrame {
 private:
   TaskHandle_t handle;
-  std::vector<std::reference_wrapper<Window>> windows;
+  std::vector<Window> windows;
 
   void handle_message(Netconn& conn);
 

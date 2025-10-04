@@ -1,5 +1,5 @@
 #include "conway.hpp"
-#include "Hub75.hpp"
+#include "Window.hpp"
 #include "ControlServer.hpp"
 #include "util/Netconn.hpp"
 #include "util.hpp"
@@ -43,10 +43,9 @@ void step(std::vector<uint8_t>& state, std::vector<uint8_t>& next_state, uint wi
 
 void conway_task(TaskHandle_t task) {
   // Create window
-  Hub75& matrix = Hub75::instance();
   ControlServer& server = ControlServer::instance();
   const uint width = 64, height = 64;
-  Window& window = matrix.create_window(0, 0, width, height);
+  Window window(0, 0, width, height);
 
   // TODO Populate window from netconn data
   // Each bit represents a cell, big endian left->right top->bottom
@@ -81,7 +80,6 @@ void conway_task(TaskHandle_t task) {
 	  std::string cmd = conn.getline(" \r");
 
 	  if (cmd == "quit") {
-		matrix.remove_window(window);
 		conn.println("Quitting conway");
 		return;
 	  } else if (cmd == "delay") {
@@ -105,16 +103,17 @@ void conway_task(TaskHandle_t task) {
 	std::swap(state, next_state);
 
 	// Draw
+	auto& buffer = window.buffer();
 	for(uint i = 0; i < width * height; ++i) {
 	  if ((*state)[i/8] >> (i%8) & 1) {
-		window.buffer[i] = to_rgba5551(0x1ffffff);
+		buffer[i] = to_rgba5551(0x1ffffff);
 	  } else {
-		window.buffer[i] &= to_rgba5551(0x1ff0000);
-		window.buffer[i] = std::min(window.buffer[i], to_rgba5551(0x880000));
-		window.buffer[i] -= std::min(window.buffer[i], (uint16_t)(fade_rate << 10));
+		buffer[i] &= to_rgba5551(0x1ff0000);
+		buffer[i] = std::min(buffer[i], to_rgba5551(0x880000));
+		buffer[i] -= std::min(buffer[i], (uint16_t)(fade_rate << 10));
 	  }
 	}
-	matrix.request_update();
+	window.paint();
 	vTaskDelay(pdMS_TO_TICKS(delay));
 
   }

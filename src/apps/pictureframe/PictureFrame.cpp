@@ -34,7 +34,6 @@ void PictureFrame::handle_message(Netconn& conn) {
 
   if (cmd == "quit") {
 	conn.println("Quitting picture frame");
-	for (const auto& win : this->windows) Hub75::instance().remove_window(win);
   } else if (cmd == "add") {
 
 	// Create new Hub75 window with raw data
@@ -47,17 +46,16 @@ void PictureFrame::handle_message(Netconn& conn) {
 	  dimensions[i] = std::stoi(tmpint);
 	}
 
-	Window& window = matrix.create_window(dimensions[0], dimensions[1], dimensions[2], dimensions[3]);
-
-	this->windows.push_back(window);
+	this->windows.emplace_back(dimensions[0], dimensions[1], dimensions[2], dimensions[3]);
+	std::vector<uint16_t>& buffer = windows.back().buffer();
 
 	// TODO populate window
 	conn.println(std::string("Ready: ") + std::to_string(this->windows.size() - 1));
-	conn.read_into(window.buffer.data(), window.buffer.size() * sizeof(uint16_t));
+	conn.read_into(buffer.data(), buffer.size() * sizeof(uint16_t));
 	conn.println("Finished, requesting update");
 
-	conn.println(std::string("Window size: ") + std::to_string(window.buffer.size()));
-	matrix.request_update();
+	conn.println(std::string("Window size: ") + std::to_string(buffer.size()));
+	windows.back().paint();
   } else if (cmd == "setdata") {
 	size_t index = std::stoi(conn.getline(" \r"));
 	if (index >= this->windows.size()) {
@@ -65,10 +63,11 @@ void PictureFrame::handle_message(Netconn& conn) {
 	  return;
 	}
 	Window& window = this->windows[index];
+	std::vector<uint16_t>& buffer = window.buffer();
 	conn.println("Ready");
-	conn.read_into(window.buffer.data(), window.buffer.size() * sizeof(uint16_t));
+	conn.read_into(buffer.data(), buffer.size() * sizeof(uint16_t));
 	conn.println("Finished, requesting update");
-	matrix.request_update();
+	window.paint();
   } else if (cmd == "move") {
 	size_t index = std::stoi(conn.getline(" \r"));
 	if (index >= this->windows.size()) {
@@ -77,13 +76,14 @@ void PictureFrame::handle_message(Netconn& conn) {
 	}
 
 	Window& window = this->windows[index];
-	window.x = std::stoi(conn.getline(" \r"));
-	window.y = std::stoi(conn.getline(" \r"));
+	window.x() = std::stoi(conn.getline(" \r"));
+	window.y() = std::stoi(conn.getline(" \r"));
+	window.paint();
   } else if (cmd == "remove") {
 	size_t index = std::stoi(conn.getline());
-	Hub75::instance().remove_window(this->windows[index]);
+	this->windows.erase(this->windows.begin() + index);
 	conn.println("Removed window");
-	matrix.request_update();
+	// TODO handle update on erase?
   }
 }
 

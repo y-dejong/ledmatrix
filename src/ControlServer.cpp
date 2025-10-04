@@ -65,28 +65,26 @@ bool ControlServer::init() {
   return true;
 }
 
-
-
 void ControlServer::listen() {
 
   netconn_listen(this->conn);
-  netconn* client_conn;
+  netconn* client_conn_ptr;
   while(1) {
 
     // Block until new client connection
-    if(netconn_accept(this->conn, &client_conn) != ERR_OK) {
+    if(netconn_accept(this->conn, &client_conn_ptr) != ERR_OK) {
       blink(3, 1000);
       printf("Failed to accept connection\n");
       continue;
     }
 
-	Netconn stream(client_conn);
-	stream.println("LED Matrix OS v1.0");
+	Netconn client_conn(client_conn_ptr);
+	client_conn.println("LED Matrix OS v1.0");
 
 	std::string command;
-	while(stream.connected()) {
-	  command = stream.getline(" \r"); // Gets 1 word
-	  this->process_command(command, stream);
+	while(client_conn.connected()) {
+	  command = client_conn.getline(" \r"); // Gets 1 word
+	  this->process_command(command, client_conn);
 	}
   }
 }
@@ -212,8 +210,6 @@ void ControlServer::give_conn(std::string_view taskname, Netconn* conn) {
 	conn->println("Failed to give back semaphore");
   }
 }
-
-
 
 ControlServer::~ControlServer() {
   netconn_delete(this->conn);
