@@ -6,10 +6,12 @@
 #include "hub75.pio.h"
 
 #include "FreeRTOS.h"
-#include "semphr.h"
+#include "queue.h"
 
 #include <algorithm>
 #include <math.h>
+
+#include "util.hpp"
 
 #define DATA_BASE_PIN 0
 #define DATA_N_PINS 6
@@ -20,7 +22,7 @@
 #define OEN_PIN 13
 
 Hub75::Hub75(uint panel_width, uint panel_height, uint panel_count, uint width, uint height)
-: panel_width(panel_width), panel_height(panel_height), panel_count(panel_count), needs_update(false), width(width), height(height) {
+: panel_width(panel_width), panel_height(panel_height), panel_count(panel_count), width(width), height(height) {
   pio = pio0;
   sm_data = 0;
   sm_row = 1;
@@ -31,7 +33,8 @@ Hub75::Hub75(uint panel_width, uint panel_height, uint panel_count, uint width, 
   hub75_row_program_init(pio, sm_row, row_prog_offs, ROWSEL_BASE_PIN, ROWSEL_N_PINS, STROBE_PIN);
 
   master_buffer.reserve(width * height);
-  app_windows_mutex = xSemaphoreCreateMutex();
+  update_queue = xQueueCreate(4, sizeof(Window*)); // magic number queue length
+  if(update_queue == nullptr) blink(50, 100);
 
   for(int i = 0; i < width * height; ++i) {
     master_buffer[i] = 0x050000;
@@ -39,9 +42,6 @@ Hub75::Hub75(uint panel_width, uint panel_height, uint panel_count, uint width, 
 }
 
 void Hub75::render() {
-  if (this->needs_update) {
-	this->update();
-  }
 
   for (int panel_row = 0; panel_row < panel_height / 2; ++panel_row) {
     for (int bit = 0; bit < 8; ++bit) { // Something PWM/BCM related? Not sure why we need this loop
@@ -77,42 +77,49 @@ void Hub75::render() {
   }
 }
 
-void Hub75::update() {
-  this->needs_update = false;
-  for (auto it = Window::all_windows.begin(); it != Window::all_windows.end(); ++it) {
-	if (it->expired()) {
-	  Window::all_windows.erase(it); // Remove no longer existing windows
-	  continue;
-	}
-	std::shared_ptr<Window::Impl> window_ptr = it->lock();
-	Window::Impl& window = *window_ptr;
-	uint x = window.x, y = window.y;
-	uint wmax = std::min(window.width + window.x, this->width);
-	uint hmax = std::min(window.height + window.y, this->height);
-
-	for(const auto& pixel : window.buffer) {
-	  if(pixel >> 15 & 1) { // Check transparency bit
-		this->master_buffer[y * this->width + x] = this->gamma_correct_555_888(pixel);
-	  }
-	  ++x;
-	  if (x >= wmax) {
-		x = window.x;
-		++y;
-		if (y >= hmax) break;
-	  }
-	}
-  }
+void Hub75::paint_window(Window* window) {
+  xQueueSend(this->update_queue, &window, portMAX_DELAY);
 }
 
-/*Window& Hub75::create_window(uint x, uint y, uint width, uint height) {
-  xSemaphoreTake(this->app_windows_mutex, portMAX_DELAY);
-  this->app_windows.emplace_back(x, y, width, height);
-  xSemaphoreGive(this->app_windows_mutex);
-  return this->app_windows.back();
-}*/
+void Hub75::update(bool full_repaint) {
+  uint xmin = this->width, ymin = this->height, xmax = 0, ymax = 0;
+  Window* update_ptr = nullptr;
+  while(xQueueReceive(this->update_queue, &update_ptr, 0) == pdPASS) {
+	xmin = std::min(xmin, update_ptr->x);
+	ymin = std::min(ymin, update_ptr->y);
+	xmax = std::min(std::max(xmax, update_ptr->x + update_ptr->width), this->width);
+	ymax = std::min(std::max(ymax, update_ptr->y + update_ptr->height), this->height);
+  }
+  if (full_repaint) {
+	xmin = 0;
+	ymin = 0;
+	xmax = this->width;
+	ymax = this->height;
+  }
+  if (xmin >= xmax || ymin >= ymax) return; // No need to update
 
-void Hub75::request_update() {
-  this->needs_update = true;
+  spin_lock_unsafe_blocking(Window::registry_lock()); // Prevent creation/deletion of windows
+  Window* window_ptr = Window::registry_head;
+  while (window_ptr != nullptr) {
+	Window& window = *window_ptr;
+
+	uint skip_before = 0, skip_after = 0;
+	if (window.x < xmin) skip_before = xmin - window.x;
+	if (window.x + window.width > xmax) skip_after = (window.x + window.width) - xmax;
+
+	auto pixel_iter = window.buffer.begin();
+	if (window.y < ymin) pixel_iter += window.width * (ymin - window.y); // Skip unneeded rows
+	for(uint y = std::max(window.y, ymin); y < std::min(ymax, window.y + window.height); ++y) {
+	  pixel_iter += skip_before;
+	  for (uint x = std::max(window.x, xmin); x < std::min(xmax, window.x + window.width); ++x) {
+		if (*pixel_iter >> 15 & 1) this->master_buffer[y * this->width + x] = this->gamma_correct_555_888(*pixel_iter);
+		++pixel_iter;
+	  }
+	  pixel_iter += skip_after;
+	}
+	window_ptr = window.next;
+  }
+  spin_unlock_unsafe(Window::registry_lock());
 }
 
 uint32_t Hub75::gamma_correct_565_888(uint16_t pixel) {

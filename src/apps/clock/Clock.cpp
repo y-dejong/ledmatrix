@@ -126,7 +126,7 @@ void Clock::drawDateTime(Window& window) {
 
   std::tm* timeinfo = std::gmtime(&current_time);
 
-  for(auto& pixel : window.buffer()) {
+  for(auto& pixel : window.buffer) {
 	pixel = 0;
   }
 

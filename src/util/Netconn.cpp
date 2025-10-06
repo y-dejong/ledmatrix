@@ -45,7 +45,7 @@ std::string Netconn::getline(std::string_view delim) {
 		this->offset = 0;
 		continue;
 	  }
-	  blink(1, 20);
+	  //blink(1, 20);
 	  cr_pos = std::string_view(data, len).find_first_of(delim, offset);
 
 	  if (cr_pos != std::string::npos) {

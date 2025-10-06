@@ -21,12 +21,22 @@ void controlServerTask(void* context) {
   server.listen();
 }
 
+// Send master buffer to the screen
 void drawTask(void* context) {
   Hub75& matrix = Hub75::instance();
 
   while(1) {
     matrix.render();
-    vTaskDelay(1);
+    vTaskDelay(2);
+  }
+}
+
+// Update the master buffer from windows
+void updateTask(void* context) {
+  Hub75& matrix = Hub75::instance();
+  while(1) {
+	matrix.update();
+	vTaskDelay(10); // TODO find a way to sync this with drawTask without blocking it
   }
 }
 
@@ -35,9 +45,10 @@ int main() {
 
   Hub75::initialize(64, 32, 3, 96, 64);
 
-  TaskHandle_t controlServerHandle, drawHandle;
+  TaskHandle_t controlServerHandle, drawHandle, updateHandle;
   xTaskCreate(controlServerTask, "ControlServerThread", 4096, nullptr, tskIDLE_PRIORITY + 5UL, &controlServerHandle);
   xTaskCreate(drawTask, "DrawThread", configMINIMAL_STACK_SIZE, nullptr, tskIDLE_PRIORITY + 4UL, &drawHandle);
+  xTaskCreate(updateTask, "UpdateThread", configMINIMAL_STACK_SIZE, nullptr, tskIDLE_PRIORITY + 3UL, &updateHandle);
 
   vTaskStartScheduler();
 

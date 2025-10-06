@@ -44,7 +44,7 @@ void step(std::vector<uint8_t>& state, std::vector<uint8_t>& next_state, uint wi
 void conway_task(TaskHandle_t task) {
   // Create window
   ControlServer& server = ControlServer::instance();
-  const uint width = 64, height = 64;
+  const uint width = 96, height = 64;
   Window window(0, 0, width, height);
 
   // TODO Populate window from netconn data
@@ -103,7 +103,7 @@ void conway_task(TaskHandle_t task) {
 	std::swap(state, next_state);
 
 	// Draw
-	auto& buffer = window.buffer();
+	auto& buffer = window.buffer;
 	for(uint i = 0; i < width * height; ++i) {
 	  if ((*state)[i/8] >> (i%8) & 1) {
 		buffer[i] = to_rgba5551(0x1ffffff);

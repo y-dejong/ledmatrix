@@ -12,7 +12,7 @@ void runAnimationTask(TaskHandle_t task) {
   uint frame_num = 0;
   while (1) {
 	for (uint i = 0; i < 64 * 64; ++i) {
-	  win.buffer()[i] = img_vaporwave[frame_num][i];
+	  win.buffer[i] = img_vaporwave[frame_num][i];
 	}
 	++frame_num;
 	if (frame_num == 151) frame_num = 0;
