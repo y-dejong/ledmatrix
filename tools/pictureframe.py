@@ -68,7 +68,7 @@ def send_image(img_path, coords, size, addr, port):
         time.sleep(0.5)
 
         sock.sendall(bytes(f"msg pictureframe0 add {coords[0]} {coords[1]} {size[0]} {size[1]}\r", "utf8"))
-        # sock.sendall(bytes(f"msg pictureframe0 set 0\r", "utf8"))
+        # sock.sendall(bytes(f"msg pictureframe0 setdata 0\r", "utf8"))
         img_arr = image_to_rgb555_array(Image.open(img_path), size)
 
         global send_ready

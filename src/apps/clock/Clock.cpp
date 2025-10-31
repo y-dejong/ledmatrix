@@ -1,5 +1,5 @@
 #include "Clock.hpp"
-#include "font.hpp"
+#include "util/Text.hpp"
 
 #include "ControlServer.hpp"
 #include "Window.hpp"
@@ -12,6 +12,7 @@
 #include <lwip/ip_addr.h>
 
 #include <ctime>
+#include <sstream>
 
 #define TIMEZONE_OFFSET -25200
 
@@ -122,6 +123,23 @@ void Clock::initDateTime() {
 }
 
 void Clock::drawDateTime(Window& window) {
+  std::tm* timeinfo = std::gmtime(&current_time);
+
+  int hour = timeinfo->tm_hour%12;
+  std::stringstream timestring;
+  timestring << hour << " " << (timeinfo->tm_min < 10 ? "0" : "")
+  << timeinfo->tm_min << (timeinfo->tm_hour / 12 ? " pm" : " am");
+
+  Text::write_4x6(window, 4, 4, 1, to_rgba5551(200, 200, 200, 1), timestring.str());
+
+  timestring.str(std::string()); // Clears it
+  timestring << monthAbbrevs[timeinfo->tm_mon] << " " << timeinfo->tm_mday;
+  Text::write_4x6(window, 4, 56, 1, to_rgba5551(200, 200, 200, 1), timestring.str());
+
+  window.paint();
+}
+
+void Clock::drawDateTimeOld(Window& window) { // Old layout for date time, looks good on 64x64
   uint32_t color = 0xffffff;
 
   std::tm* timeinfo = std::gmtime(&current_time);
@@ -133,66 +151,27 @@ void Clock::drawDateTime(Window& window) {
   int hour = timeinfo->tm_hour%12;
   hour = (hour == 0 ? 12 : hour);
   color = to_rgba5551(0x122a6f2);
-  drawLargeNumber5x7(window, hour/10, spriteDest[0][0], spriteDest[0][1], color);
-  drawLargeNumber5x7(window, hour%10, spriteDest[1][0], spriteDest[1][1], color);
+  Text::draw_char_5x7(window, spriteDest[0][0], spriteDest[0][1], 3, color, hour/10 + '0');
+  Text::draw_char_5x7(window, spriteDest[1][0], spriteDest[1][1], 3, color, hour%10 + '0');
 
   color = to_rgba5551(0x1bf6c1f);
-  drawLargeNumber5x7(window, timeinfo->tm_min/10, spriteDest[2][0], spriteDest[2][1], color);
-  drawLargeNumber5x7(window, timeinfo->tm_min%10, spriteDest[3][0], spriteDest[3][1], color);
+  Text::draw_char_5x7(window, spriteDest[2][0], spriteDest[2][1], 3, color, timeinfo->tm_min/10 + '0');
+  Text::draw_char_5x7(window, spriteDest[3][0], spriteDest[3][1], 3, color, timeinfo->tm_min%10 + '0');
 
   color = to_rgba5551(0x1bf6c1f);
-  drawAlphanumeric4x6(window, (timeinfo->tm_hour / 12 ? 'p' : 'a'), spriteDest[7][0], spriteDest[7][1], color);
-  drawAlphanumeric4x6(window, 'm', spriteDest[7][0] + 5, spriteDest[7][1], color);
+  Text::draw_char_4x6(window, spriteDest[7][0], spriteDest[7][1], 1, color, (timeinfo->tm_hour / 12 ? 'p' : 'a'));
+  Text::draw_char_4x6(window, spriteDest[7][0] + 5, spriteDest[7][1], 1, color, 'm');
 
   color = to_rgba5551(0x122a6f2);
-  drawAlphanumeric4x6(window, monthAbbrevs[timeinfo->tm_mon][0], spriteDest[4][0], spriteDest[4][1], color);
-  drawAlphanumeric4x6(window, monthAbbrevs[timeinfo->tm_mon][1], spriteDest[4][0] + 5, spriteDest[4][1], color);
-  drawAlphanumeric4x6(window, monthAbbrevs[timeinfo->tm_mon][2], spriteDest[4][0] + 10, spriteDest[4][1], color);
+  Text::draw_char_4x6(window, spriteDest[4][0], spriteDest[4][1], 1, color, monthAbbrevs[timeinfo->tm_mon][0]);
+  Text::draw_char_4x6(window, spriteDest[4][0] + 5, spriteDest[4][1], 1, color, monthAbbrevs[timeinfo->tm_mon][1]);
+  Text::draw_char_4x6(window, spriteDest[4][0] + 10, spriteDest[4][1], 1, color, monthAbbrevs[timeinfo->tm_mon][2]);
 
-  drawAlphanumeric4x6(window, timeinfo->tm_mday/10, spriteDest[5][0], spriteDest[5][1], color);
-  drawAlphanumeric4x6(window, timeinfo->tm_mday%10, spriteDest[5][0] + 5, spriteDest[5][1], color);
+  Text::draw_char_4x6(window, spriteDest[5][0], spriteDest[5][1], 1, color, timeinfo->tm_mday/10 + '0');
+  Text::draw_char_4x6(window, spriteDest[5][0] + 5, spriteDest[5][1], 1, color, timeinfo->tm_mday%10 + '0');
 
   window.paint();
-}
-
-void Clock::drawLargeNumber5x7(Window& window, const uint number, uint x, uint y, const uint32_t color) {
-
-  const uint original_x = x;
-  for (uint i = 0; i < 7; ++i) {
-	x = original_x;
-	for (uint j = 0; j < 5; ++j) {
-	  uint currentPixel = i * 5 + j;
-	  uint8_t shouldPaint = numeric5x7_min[number][currentPixel / 8] >> currentPixel % 8 & 1;
-
-	  //Paint 3x3
-	  for(uint u = y; u < y+3; ++u) {
-		for (uint v = x; v < x+3; ++v) {
-		  window.dot(v, u, to_rgba5551(color_gradient[u]) | (shouldPaint << 15));
-		}
-	  }
-	  x += 4; // Gap between dots
-	}
-	y += 4; // Gap between dots
-  }
-}
-
-void Clock::drawAlphanumeric4x6(Window& window, const char c, uint x, uint y, const uint32_t color) {
-
-  // Get index in the font array from the char
-  uint fontIndex;
-  if (c >= 'a' && c <= 'z') {
-    fontIndex = c - 'a' + 10;
-  } else {
-	fontIndex = c;
-  }
-
-  for (uint i = 0; i < 6; ++i) {
-	for (uint j = 0; j < 4; ++j) {
-	  uint currentPixel = i * 4 + j;
-	  uint8_t shouldPaint = alphanumeric4x6_min[fontIndex][currentPixel / 8] >> currentPixel % 8 & 1;
-	  window.dot(x + j, y + i, to_rgba5551(color_gradient[y + i]) | shouldPaint << 15);
-	}
-  }
+  blink(5, 200);
 }
 
 void Clock::handle_message(Netconn& conn) {
@@ -210,7 +189,7 @@ void Clock::run() {
   // Retrieve current time over internet
   initDateTime();
 
-  Window window(0, 0, 64, 64);
+  Window window(0, 0, 96, 64);
 
   drawDateTime(window);
   while (!this->quit) {

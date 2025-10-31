@@ -15,10 +15,9 @@ private:
   bool quit = false;
 
   void initDateTime();
-  void drawLargeNumber5x7(Window& window, const uint number, uint x, uint y, const uint32_t color);
-  void drawAlphanumeric4x6(Window& window, const char c, uint x, uint y, const uint32_t color);
+  void drawDateTimeOld(Window& window);
   void drawDateTime(Window& window);
-  void handle_message(Netconn& conn);
+void handle_message(Netconn& conn);
 public:
   void run();
 
